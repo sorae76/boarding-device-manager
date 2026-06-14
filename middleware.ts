@@ -2,6 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import type { CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
+import { hasPublicSupabaseEnv } from "@/lib/supabase/env";
+
 const PUBLIC_AUTH_PATHS = ["/login", "/auth/callback"];
 
 type CookieToSet = {
@@ -21,12 +23,19 @@ export async function middleware(request: NextRequest) {
     request
   });
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!hasPublicSupabaseEnv()) {
+    if (request.nextUrl.pathname.startsWith("/app") && !isPublicAuthPath(request.nextUrl.pathname)) {
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      loginUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+      return NextResponse.redirect(loginUrl);
+    }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
     return response;
   }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {

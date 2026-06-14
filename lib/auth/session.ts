@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { hasPublicSupabaseEnv } from "@/lib/supabase/env";
 import type { CurrentSessionContext, SchoolMembership } from "@/lib/auth/types";
 
 type MembershipRow = Omit<SchoolMembership, "schools"> & {
@@ -17,6 +18,10 @@ function normalizeMembership(row: MembershipRow): SchoolMembership {
 }
 
 export async function getCurrentSessionContext(): Promise<CurrentSessionContext | null> {
+  if (!hasPublicSupabaseEnv()) {
+    return null;
+  }
+
   const supabase = createClient();
   const {
     data: { user },
