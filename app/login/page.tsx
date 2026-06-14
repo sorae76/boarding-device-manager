@@ -26,13 +26,12 @@ export default async function LoginPage() {
             Use your school account to continue.
           </p>
         </div>
-        {hasEnv ? (
-          <LoginForm />
-        ) : (
+        {!hasEnv ? (
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-800">
             Add local Supabase values to `.env.local` to enable sign-in.
           </div>
-        )}
+        ) : null}
+        <LoginForm isAuthConfigured={hasEnv} />
       </section>
     </main>
   );

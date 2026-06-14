@@ -1,20 +1,64 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/browser";
 
-export default function LoginForm() {
+type LoginFormProps = {
+  isAuthConfigured: boolean;
+};
+
+function getSafeNextPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) {
+    return "/app/dashboard";
+  }
+
+  return value;
+}
+
+export default function LoginForm({ isAuthConfigured }: LoginFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const nextPath = getSafeNextPath(searchParams.get("next"));
+
+  async function handleGoogleSignIn() {
+    setError(null);
+
+    if (!isAuthConfigured) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    const supabase = createClient();
+    const redirectTo = new URL("/auth/callback", window.location.origin);
+    redirectTo.searchParams.set("next", nextPath);
+
+    const { error: signInError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: redirectTo.toString()
+      }
+    });
+
+    if (signInError) {
+      setError(signInError.message);
+      setIsSubmitting(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    if (!isAuthConfigured) {
+      return;
+    }
+
     setIsSubmitting(true);
 
     const supabase = createClient();
@@ -30,12 +74,33 @@ export default function LoginForm() {
       return;
     }
 
-    router.replace("/app/dashboard");
+    router.replace(nextPath);
     router.refresh();
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
+    <div className="mt-4 space-y-5">
+      <div className="space-y-2">
+        <button
+          className="h-11 w-full rounded-md border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70"
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={!isAuthConfigured || isSubmitting}
+        >
+          Continue with Google
+        </button>
+        <p className="text-center text-sm text-neutral-500">
+          Use your Olivet Academy Google account.
+        </p>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-neutral-200" />
+        <span className="text-xs font-medium uppercase text-neutral-400">or</span>
+        <div className="h-px flex-1 bg-neutral-200" />
+      </div>
+
+      <form className="space-y-4" onSubmit={handleSubmit}>
       <label className="block">
         <span className="text-sm font-medium text-neutral-800">Email</span>
         <input
@@ -45,6 +110,7 @@ export default function LoginForm() {
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
+          disabled={!isAuthConfigured || isSubmitting}
           required
         />
       </label>
@@ -57,6 +123,7 @@ export default function LoginForm() {
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
+          disabled={!isAuthConfigured || isSubmitting}
           required
         />
       </label>
@@ -70,10 +137,11 @@ export default function LoginForm() {
       <button
         className="h-11 w-full rounded-md bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70"
         type="submit"
-        disabled={isSubmitting}
+        disabled={!isAuthConfigured || isSubmitting}
       >
         {isSubmitting ? "Signing in..." : "Sign in"}
       </button>
-    </form>
+      </form>
+    </div>
   );
 }
