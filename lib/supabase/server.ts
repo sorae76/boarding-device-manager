@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { CookieOptions } from "@supabase/ssr";
 
@@ -28,6 +29,24 @@ export function createClient() {
         } catch {
           // Server Components cannot always write cookies. Middleware can refresh sessions later.
         }
+      }
+    }
+  });
+}
+
+export function createRouteHandlerClient(request: NextRequest, response: NextResponse) {
+  const { url, anonKey } = getPublicSupabaseEnv();
+
+  return createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet: CookieToSet[]) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          request.cookies.set(name, value);
+          response.cookies.set(name, value, options);
+        });
       }
     }
   });

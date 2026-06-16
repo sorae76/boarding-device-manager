@@ -27,6 +27,8 @@ export async function middleware(request: NextRequest) {
     if (request.nextUrl.pathname.startsWith("/app") && !isPublicAuthPath(request.nextUrl.pathname)) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = "/login";
+      loginUrl.searchParams.set("error", "session");
+      loginUrl.searchParams.set("reason", "missing_supabase_env");
       loginUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
       return NextResponse.redirect(loginUrl);
     }
@@ -59,12 +61,15 @@ export async function middleware(request: NextRequest) {
   });
 
   const {
-    data: { user }
+    data: { user },
+    error: userError
   } = await supabase.auth.getUser();
 
   if (!user && request.nextUrl.pathname.startsWith("/app") && !isPublicAuthPath(request.nextUrl.pathname)) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
+    loginUrl.searchParams.set("error", "session");
+    loginUrl.searchParams.set("reason", userError ? "auth_user_error" : "missing_auth_user");
     loginUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(loginUrl);
   }

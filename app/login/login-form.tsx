@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/browser";
@@ -24,7 +24,28 @@ export default function LoginForm({ isAuthConfigured }: LoginFormProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryString = searchParams.toString();
   const nextPath = getSafeNextPath(searchParams.get("next"));
+  const callbackError = searchParams.get("error");
+  const callbackReason = searchParams.get("reason");
+
+  useEffect(() => {
+    setIsSubmitting(false);
+
+    if (callbackError === "auth_callback") {
+      setError(
+        callbackReason
+          ? `Google sign-in could not be completed (${callbackReason}).`
+          : "Google sign-in could not be completed."
+      );
+    } else if (callbackError === "session") {
+      setError(
+        callbackReason
+          ? `Your session could not be loaded (${callbackReason}).`
+          : "Your session could not be loaded."
+      );
+    }
+  }, [callbackError, callbackReason, queryString]);
 
   async function handleGoogleSignIn() {
     setError(null);
@@ -38,15 +59,30 @@ export default function LoginForm({ isAuthConfigured }: LoginFormProps) {
     const redirectTo = new URL("/auth/callback", window.location.origin);
     redirectTo.searchParams.set("next", nextPath);
 
-    const { error: signInError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: redirectTo.toString()
-      }
-    });
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectTo.toString(),
+          skipBrowserRedirect: true
+        }
+      });
 
-    if (signInError) {
-      setError(signInError.message);
+      if (signInError) {
+        setError(signInError.message);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!data.url) {
+        setError("Google sign-in did not return a redirect URL.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      window.location.assign(data.url);
+    } catch (signInError) {
+      setError(signInError instanceof Error ? signInError.message : "Google sign-in could not be started.");
       setIsSubmitting(false);
     }
   }
