@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { getRoleLabel } from "@/lib/auth/roles";
 import { requireSessionContext } from "@/lib/auth/session";
+import { canAccessDeviceWorkflows } from "@/lib/devices/access";
 import LogoutButton from "@/components/logout-button";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,7 @@ export default async function ProtectedAppLayout({
   children: React.ReactNode;
 }>) {
   const context = await requireSessionContext();
+  const canUseDeviceWorkflows = canAccessDeviceWorkflows(context);
 
   return (
     <div className="min-h-screen bg-[#f7f7f8]">
@@ -20,17 +22,39 @@ export default async function ProtectedAppLayout({
           <div>
             <p className="text-sm font-semibold text-brand">OAc Device Management</p>
             <p className="text-xs text-neutral-500">
-              {context.currentSchool?.name ?? "No school selected"} ·{" "}
+              {context.currentSchool?.name ?? "No school selected"} /{" "}
               {getRoleLabel(context.effectiveRole)}
             </p>
           </div>
-          <nav className="flex items-center gap-2 text-sm">
+          <nav className="flex flex-wrap items-center gap-2 text-sm">
             <Link
               className="rounded-md px-3 py-2 font-medium text-neutral-700 hover:bg-neutral-100"
               href="/app/dashboard"
             >
               Dashboard
             </Link>
+            {canUseDeviceWorkflows ? (
+              <>
+                <Link
+                  className="rounded-md px-3 py-2 font-medium text-neutral-700 hover:bg-neutral-100"
+                  href="/app/devices"
+                >
+                  Devices
+                </Link>
+                <Link
+                  className="rounded-md px-3 py-2 font-medium text-neutral-700 hover:bg-neutral-100"
+                  href="/app/returns"
+                >
+                  Returns
+                </Link>
+                <Link
+                  className="rounded-md px-3 py-2 font-medium text-neutral-700 hover:bg-neutral-100"
+                  href="/app/returns/log"
+                >
+                  Log
+                </Link>
+              </>
+            ) : null}
             <Link
               className="rounded-md px-3 py-2 font-medium text-neutral-700 hover:bg-neutral-100"
               href="/app/settings"

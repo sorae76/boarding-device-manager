@@ -1,27 +1,47 @@
+import Link from "next/link";
+
 import { requireSessionContext } from "@/lib/auth/session";
+import { canAccessDeviceWorkflows } from "@/lib/devices/access";
+import type { DeviceWorkflowContext } from "@/lib/devices/access";
+import { getDashboardDeviceCounts } from "@/lib/devices/data";
 
 export const dynamic = "force-dynamic";
 
-const placeholderCards = [
-  {
-    title: "Checked-in devices",
-    value: "Ready",
-    detail: "Operational counts will be added after workflow approval."
-  },
-  {
-    title: "Checked-out devices",
-    value: "Ready",
-    detail: "No device checkout mutations are implemented in this phase."
-  },
-  {
-    title: "Overdue notices",
-    value: "Ready",
-    detail: "Notice scheduling remains a later backend workflow."
-  }
-];
-
 export default async function DashboardPage() {
   const context = await requireSessionContext();
+  const canUseDevices = canAccessDeviceWorkflows(context);
+  const workflowContext =
+    canUseDevices && context.currentSchool ? (context as DeviceWorkflowContext) : null;
+  const counts = workflowContext
+    ? await getDashboardDeviceCounts(workflowContext)
+    : {
+        registeredDevices: 0,
+        checkedOutDevices: 0,
+        returnedToday: 0,
+        pendingOrMissing: 0
+      };
+  const cards = [
+    {
+      title: "Registered devices",
+      value: counts.registeredDevices.toString(),
+      detail: "Devices currently in the custody registry."
+    },
+    {
+      title: "Checked-out devices",
+      value: counts.checkedOutDevices.toString(),
+      detail: "Devices assigned out and not yet returned."
+    },
+    {
+      title: "Returned today",
+      value: counts.returnedToday.toString(),
+      detail: "Return events recorded today."
+    },
+    {
+      title: "Pending / missing",
+      value: counts.pendingOrMissing.toString(),
+      detail: "Checked-out devices past due plus lost devices."
+    }
+  ];
 
   return (
     <div className="space-y-6">
@@ -31,13 +51,29 @@ export default async function DashboardPage() {
           {context.currentSchool?.name ?? "School"} device operations
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">
-          The app is connected to Supabase and ready for authenticated role-based
-          shells. Device workflows are intentionally not active yet.
+          Track assigned student devices, return confirmations, and return exceptions through the
+          protected custody workflow.
         </p>
+        {workflowContext ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark"
+              href="/app/devices"
+            >
+              Open registry
+            </Link>
+            <Link
+              className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-100"
+              href="/app/returns"
+            >
+              Record return
+            </Link>
+          </div>
+        ) : null}
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {placeholderCards.map((card) => (
+      <section className="grid gap-4 md:grid-cols-4">
+        {cards.map((card) => (
           <article
             className="min-h-[140px] rounded-lg border border-neutral-200 bg-white p-5 shadow-sm"
             key={card.title}
