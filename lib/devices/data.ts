@@ -154,6 +154,26 @@ export async function listDevices(context: DeviceWorkflowContext): Promise<Custo
   return ((data ?? []) as DeviceRow[]).map(normalizeDevice);
 }
 
+export async function getDeviceCountsByStudentId(
+  context: DeviceWorkflowContext
+): Promise<Record<string, number>> {
+  const devices = await listDevices(context);
+
+  return devices.reduce<Record<string, number>>((counts, device) => {
+    counts[device.student_id] = (counts[device.student_id] ?? 0) + 1;
+
+    return counts;
+  }, {});
+}
+
+export async function getExistingDeviceAssetTags(context: DeviceWorkflowContext): Promise<string[]> {
+  const devices = await listDevices(context);
+
+  return devices
+    .map((device) => device.asset_tag)
+    .filter((assetTag): assetTag is string => Boolean(assetTag));
+}
+
 export async function getDevice(
   context: DeviceWorkflowContext,
   deviceId: string

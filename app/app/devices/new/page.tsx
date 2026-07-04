@@ -2,13 +2,21 @@ import Link from "next/link";
 
 import DeviceForm from "@/app/app/devices/device-form";
 import { requireDeviceWorkflowContext } from "@/lib/devices/access";
-import { listStudents } from "@/lib/devices/data";
+import {
+  getDeviceCountsByStudentId,
+  getExistingDeviceAssetTags,
+  listStudents
+} from "@/lib/devices/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewDevicePage() {
   const context = await requireDeviceWorkflowContext();
-  const students = await listStudents(context);
+  const [students, existingDeviceCountsByStudentId, existingAssetTags] = await Promise.all([
+    listStudents(context),
+    getDeviceCountsByStudentId(context),
+    getExistingDeviceAssetTags(context)
+  ]);
 
   return (
     <div className="space-y-5">
@@ -20,7 +28,12 @@ export default async function NewDevicePage() {
       </div>
 
       <section className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
-        <DeviceForm cancelHref="/app/devices" students={students} />
+        <DeviceForm
+          cancelHref="/app/devices"
+          existingAssetTags={existingAssetTags}
+          existingDeviceCountsByStudentId={existingDeviceCountsByStudentId}
+          students={students}
+        />
       </section>
     </div>
   );

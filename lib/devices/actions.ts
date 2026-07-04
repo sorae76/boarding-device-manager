@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireDeviceWorkflowContext } from "@/lib/devices/access";
+import {
+  importValidDeviceCsvRows,
+  previewDeviceCsvImport,
+  type DeviceImportPreview
+} from "@/lib/devices/csv-import";
 import { createClient } from "@/lib/supabase/server";
 import type {
   DeviceCustodyEventAction,
@@ -37,6 +42,12 @@ export type ReturnScanState = {
   deviceLabel?: string;
   studentName?: string;
   latestReturnAt?: string;
+};
+
+export type DeviceCsvImportState = {
+  status: "idle" | "preview" | "imported" | "error";
+  message: string;
+  preview: DeviceImportPreview | null;
 };
 
 function textValue(formData: FormData, key: string) {
@@ -158,6 +169,59 @@ export async function saveDeviceAction(formData: FormData) {
   revalidatePath("/app/dashboard");
   revalidatePath("/app/devices");
   redirect(`/app/devices/${data.id}`);
+}
+
+export async function previewDeviceCsvImportAction(
+  _previousState: DeviceCsvImportState,
+  formData: FormData
+): Promise<DeviceCsvImportState> {
+  try {
+    const file = formData.get("csvFile");
+
+    if (!(file instanceof File) || file.size === 0) {
+      return {
+        status: "error",
+        message: "Choose a CSV file to preview.",
+        preview: null
+      };
+    }
+
+    const preview = await previewDeviceCsvImport(file);
+
+    return {
+      status: "preview",
+      message: preview.summary,
+      preview
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Could not preview CSV import.",
+      preview: null
+    };
+  }
+}
+
+export async function importValidDeviceCsvRowsAction(
+  _previousState: DeviceCsvImportState,
+  formData: FormData
+): Promise<DeviceCsvImportState> {
+  try {
+    const rawRowsJson = requiredText(formData, "rawRowsJson", "CSV preview");
+    const preview = await importValidDeviceCsvRows(rawRowsJson);
+
+    return {
+      status: "imported",
+      message: preview.summary,
+      preview
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Could not import CSV rows.",
+      preview: null
+    };
+  }
 }
 
 async function findDeviceByLookup(schoolId: string, lookup: string) {

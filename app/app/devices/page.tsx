@@ -26,12 +26,32 @@ export default async function DeviceRegistryPage() {
             Student device custody
           </h1>
         </div>
-        <Link
-          className="rounded-md bg-brand px-4 py-2 text-center text-sm font-semibold text-white hover:bg-brand-dark"
-          href="/app/devices/new"
-        >
-          Add device
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-center text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+            href="/app/devices/template"
+          >
+            Download template
+          </Link>
+          <Link
+            className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-center text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+            href="/app/devices/import"
+          >
+            Import CSV
+          </Link>
+          <Link
+            className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-center text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+            href="/app/devices/export"
+          >
+            Export CSV
+          </Link>
+          <Link
+            className="rounded-md bg-brand px-4 py-2 text-center text-sm font-semibold text-white hover:bg-brand-dark"
+            href="/app/devices/new"
+          >
+            Add device
+          </Link>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
