@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { saveDeviceAction } from "@/lib/devices/actions";
 import {
   deviceTypeLabels,
@@ -11,11 +13,12 @@ const deviceTypes: DeviceType[] = ["phone", "tablet", "laptop", "watch", "other"
 const statuses: DeviceCustodyStatus[] = ["checked_out", "returned", "inactive", "lost"];
 
 type DeviceFormProps = {
+  cancelHref?: string;
   device?: CustodyDevice;
   students: StudentSummary[];
 };
 
-export default function DeviceForm({ device, students }: DeviceFormProps) {
+export default function DeviceForm({ cancelHref, device, students }: DeviceFormProps) {
   return (
     <form action={saveDeviceAction} className="space-y-5">
       {device ? <input name="deviceId" type="hidden" value={device.id} /> : null}
@@ -137,7 +140,15 @@ export default function DeviceForm({ device, students }: DeviceFormProps) {
         </label>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-3">
+        {cancelHref ? (
+          <Link
+            className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+            href={cancelHref}
+          >
+            Cancel
+          </Link>
+        ) : null}
         <button
           className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark"
           type="submit"

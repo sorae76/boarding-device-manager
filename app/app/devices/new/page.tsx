@@ -20,7 +20,7 @@ export default async function NewDevicePage() {
       </div>
 
       <section className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
-        <DeviceForm students={students} />
+        <DeviceForm cancelHref="/app/devices" students={students} />
       </section>
     </div>
   );
