@@ -18,7 +18,8 @@ export default async function DashboardPage() {
         registeredDevices: 0,
         checkedOutDevices: 0,
         returnedToday: 0,
-        pendingOrMissing: 0
+        pendingOrMissing: 0,
+        pendingNotices: 0
       };
   const cards = [
     {
@@ -40,6 +41,11 @@ export default async function DashboardPage() {
       title: "Pending / missing",
       value: counts.pendingOrMissing.toString(),
       detail: "Checked-out devices past due plus lost devices."
+    },
+    {
+      title: "Pending notices",
+      value: counts.pendingNotices.toString(),
+      detail: "Possible post-return app activity notices."
     }
   ];
 
@@ -68,11 +74,17 @@ export default async function DashboardPage() {
             >
               Record return
             </Link>
+            <Link
+              className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-100"
+              href="/app/notices"
+            >
+              Review notices
+            </Link>
           </div>
         ) : null}
       </section>
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-5">
         {cards.map((card) => (
           <article
             className="min-h-[140px] rounded-lg border border-neutral-200 bg-white p-5 shadow-sm"

@@ -2,6 +2,7 @@ import type {
   CustodyDevice,
   DeviceCustodyEventAction,
   DeviceCustodyEventMethod,
+  DeviceCustodyNoticeStatus,
   DeviceCustodyStatus,
   DeviceType,
   StudentSummary
@@ -32,6 +33,13 @@ export const actionLabels: Record<DeviceCustodyEventAction, string> = {
 export const methodLabels: Record<DeviceCustodyEventMethod, string> = {
   qr_scan: "QR scan",
   manual: "Manual"
+};
+
+export const noticeStatusLabels: Record<DeviceCustodyNoticeStatus, string> = {
+  pending: "Pending",
+  reviewed: "Reviewed",
+  excused: "Excused",
+  violation_foundation: "Violation foundation"
 };
 
 export function studentName(student: StudentSummary | null) {

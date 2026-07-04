@@ -3,7 +3,9 @@ import type { DeviceWorkflowContext } from "@/lib/devices/access";
 import type {
   CustodyDevice,
   CustodyEvent,
+  CustodyNotice,
   DashboardDeviceCounts,
+  DevicePass,
   StudentSummary
 } from "@/lib/devices/types";
 
@@ -15,6 +17,11 @@ type DeviceRow = Omit<CustodyDevice, "students"> & {
 
 type EventRow = Omit<CustodyEvent, "device_custody_devices" | "students"> & {
   device_custody_devices: CustodyEvent["device_custody_devices"] | CustodyEvent["device_custody_devices"][] | null;
+  students: StudentRelation;
+};
+
+type NoticeRow = Omit<CustodyNotice, "device_custody_devices" | "students"> & {
+  device_custody_devices: CustodyNotice["device_custody_devices"] | CustodyNotice["device_custody_devices"][] | null;
   students: StudentRelation;
 };
 
@@ -51,6 +58,22 @@ const eventSelect = `
   students(id,student_number,first_name,last_name,grade_level)
 `;
 
+const noticeSelect = `
+  id,
+  school_id,
+  device_id,
+  student_id,
+  notice_type,
+  status,
+  reason,
+  occurred_at,
+  reviewed_by_user_id,
+  reviewed_at,
+  review_notes,
+  device_custody_devices(id,manufacturer,model,asset_tag,qr_token,device_type),
+  students(id,student_number,first_name,last_name,grade_level)
+`;
+
 function single<T>(value: T | T[] | null): T | null {
   if (Array.isArray(value)) {
     return value[0] ?? null;
@@ -67,6 +90,14 @@ function normalizeDevice(row: DeviceRow): CustodyDevice {
 }
 
 function normalizeEvent(row: EventRow): CustodyEvent {
+  return {
+    ...row,
+    device_custody_devices: single(row.device_custody_devices),
+    students: single(row.students)
+  };
+}
+
+function normalizeNotice(row: NoticeRow): CustodyNotice {
   return {
     ...row,
     device_custody_devices: single(row.device_custody_devices),
@@ -178,6 +209,68 @@ export async function listDeviceEvents(
   return ((data ?? []) as EventRow[]).map(normalizeEvent);
 }
 
+export async function listNotices(context: DeviceWorkflowContext): Promise<CustodyNotice[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("device_custody_notices")
+    .select(noticeSelect)
+    .eq("school_id", context.currentSchool.id)
+    .order("occurred_at", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    throw new Error(`Could not load device notices: ${error.message}`);
+  }
+
+  return ((data ?? []) as NoticeRow[]).map(normalizeNotice);
+}
+
+export async function getLatestReturnEvent(
+  context: DeviceWorkflowContext,
+  deviceId: string
+): Promise<CustodyEvent | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("device_custody_events")
+    .select(eventSelect)
+    .eq("school_id", context.currentSchool.id)
+    .eq("device_id", deviceId)
+    .eq("action", "returned")
+    .order("performed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Could not load latest return event: ${error.message}`);
+  }
+
+  return data ? normalizeEvent(data as EventRow) : null;
+}
+
+export async function getDevicePass(qrToken: string): Promise<DevicePass | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .rpc("get_device_pass_by_qr_token", { target_qr_token: qrToken })
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Could not load device pass: ${error.message}`);
+  }
+
+  return (data as DevicePass | null) ?? null;
+}
+
+export async function recordDevicePassOpen(qrToken: string) {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("record_device_pass_open", {
+    target_qr_token: qrToken
+  });
+
+  if (error) {
+    throw new Error(`Could not record device pass activity: ${error.message}`);
+  }
+}
+
 export async function getDashboardDeviceCounts(
   context: DeviceWorkflowContext
 ): Promise<DashboardDeviceCounts> {
@@ -190,7 +283,8 @@ export async function getDashboardDeviceCounts(
     checkedOutResult,
     returnedTodayResult,
     lostResult,
-    overdueResult
+    overdueResult,
+    pendingNoticesResult
   ] = await Promise.all([
     supabase
       .from("device_custody_devices")
@@ -218,7 +312,12 @@ export async function getDashboardDeviceCounts(
       .select("id", { count: "exact", head: true })
       .eq("school_id", schoolId)
       .eq("status", "checked_out")
-      .lt("return_due_at", new Date().toISOString())
+      .lt("return_due_at", new Date().toISOString()),
+    supabase
+      .from("device_custody_notices")
+      .select("id", { count: "exact", head: true })
+      .eq("school_id", schoolId)
+      .eq("status", "pending")
   ]);
 
   const errors = [
@@ -226,7 +325,8 @@ export async function getDashboardDeviceCounts(
     checkedOutResult.error,
     returnedTodayResult.error,
     lostResult.error,
-    overdueResult.error
+    overdueResult.error,
+    pendingNoticesResult.error
   ].filter(Boolean);
 
   if (errors.length > 0) {
@@ -237,6 +337,7 @@ export async function getDashboardDeviceCounts(
     registeredDevices: registeredResult.count ?? 0,
     checkedOutDevices: checkedOutResult.count ?? 0,
     returnedToday: returnedTodayResult.count ?? 0,
-    pendingOrMissing: (lostResult.count ?? 0) + (overdueResult.count ?? 0)
+    pendingOrMissing: (lostResult.count ?? 0) + (overdueResult.count ?? 0),
+    pendingNotices: pendingNoticesResult.count ?? 0
   };
 }

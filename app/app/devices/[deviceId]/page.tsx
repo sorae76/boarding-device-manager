@@ -57,6 +57,12 @@ export default async function DeviceDetailPage({ params }: DeviceDetailPageProps
           >
             Return
           </Link>
+          <Link
+            className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-100"
+            href={`/device-pass/${device.qr_token}`}
+          >
+            Pass
+          </Link>
         </div>
       </div>
 
