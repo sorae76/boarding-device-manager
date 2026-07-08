@@ -17,16 +17,16 @@ export const deviceTypeLabels: Record<DeviceType, string> = {
 };
 
 export const statusLabels: Record<DeviceCustodyStatus, string> = {
-  checked_out: "Checked out",
-  returned: "Returned",
+  checked_out: "With student / Released to student",
+  returned: "Checked in / School storage",
   inactive: "Inactive",
-  lost: "Lost"
+  lost: "Missing / Lost"
 };
 
 export const actionLabels: Record<DeviceCustodyEventAction, string> = {
-  returned: "Returned",
-  checked_out: "Checked out",
-  marked_missing: "Marked missing",
+  returned: "Checked in / Returned to school",
+  checked_out: "Checked out / Released to student",
+  marked_missing: "Marked missing / Lost",
   exception: "Exception"
 };
 

@@ -8,6 +8,12 @@ export type DeviceCustodyEventAction =
 
 export type DeviceCustodyEventMethod = "qr_scan" | "manual";
 
+export type DeviceLifecycleTransition =
+  | "check_in"
+  | "check_out"
+  | "mark_missing"
+  | "set_inactive";
+
 export type DeviceType = "phone" | "tablet" | "laptop" | "watch" | "other";
 
 export type StudentSummary = {

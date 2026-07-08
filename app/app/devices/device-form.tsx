@@ -262,25 +262,38 @@ export default function DeviceForm({
             Advanced options
           </summary>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <label className="space-y-1">
-              <span className="font-medium text-neutral-700">Current possession/status</span>
-              <select
-                className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
-                defaultValue={device?.status ?? "checked_out"}
-                name="status"
-              >
-                {statuses.map((status) => (
-                  <option key={status} value={status}>
-                    {statusLabels[status]}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {device ? (
+              <div className="space-y-1">
+                <p className="font-medium text-neutral-700">Current lifecycle status</p>
+                <p className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-700">
+                  {statusLabels[device.status]}
+                </p>
+                <p className="text-xs leading-5 text-neutral-600">
+                  Use the lifecycle controls on the device detail page for check-in, release,
+                  missing, or inactive changes so each status change creates a custody event.
+                </p>
+              </div>
+            ) : (
+              <label className="space-y-1">
+                <span className="font-medium text-neutral-700">Initial possession/status</span>
+                <select
+                  className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+                  defaultValue="checked_out"
+                  name="status"
+                >
+                  {statuses.map((status) => (
+                    <option key={status} value={status}>
+                      {statusLabels[status]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <div className="text-xs leading-5 text-neutral-600">
-              <p>checked_out = student currently has the device</p>
-              <p>returned = school/staff currently holds the device</p>
-              <p>inactive = no longer active</p>
-              <p>lost = lost device</p>
+              <p>With student / Released to student = student currently has the device</p>
+              <p>Checked in / School storage = school/staff currently holds the device</p>
+              <p>Missing / Lost = missing or lost device</p>
+              <p>Inactive = no longer active</p>
             </div>
           </div>
         </details>

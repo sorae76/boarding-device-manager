@@ -15,6 +15,7 @@ import type {
   DeviceCustodyEventMethod,
   DeviceCustodyNoticeStatus,
   DeviceCustodyStatus,
+  DeviceLifecycleTransition,
   DeviceType
 } from "@/lib/devices/types";
 
@@ -33,6 +34,18 @@ const noticeStatuses: DeviceCustodyNoticeStatus[] = [
   "excused",
   "violation_foundation"
 ];
+const lifecycleTransitions: DeviceLifecycleTransition[] = [
+  "check_in",
+  "check_out",
+  "mark_missing",
+  "set_inactive"
+];
+
+type LifecycleDeviceRow = {
+  id: string;
+  student_id: string;
+  status: DeviceCustodyStatus;
+};
 
 export type ReturnScanState = {
   status: "idle" | "success" | "already_returned" | "not_found" | "error";
@@ -113,12 +126,162 @@ function isUuid(value: string) {
   );
 }
 
+function isLifecycleAdmin(effectiveRole: string) {
+  return effectiveRole === "super_admin" || effectiveRole === "school_admin";
+}
+
+function lifecycleEventAction(
+  transition: DeviceLifecycleTransition
+): DeviceCustodyEventAction {
+  if (transition === "check_in") {
+    return "returned";
+  }
+
+  if (transition === "check_out") {
+    return "checked_out";
+  }
+
+  if (transition === "mark_missing") {
+    return "marked_missing";
+  }
+
+  return "exception";
+}
+
+function validateLifecycleTransition(
+  transition: DeviceLifecycleTransition,
+  currentStatus: DeviceCustodyStatus,
+  note: string | null,
+  isAdmin: boolean
+) {
+  if (currentStatus === "inactive") {
+    throw new Error("Inactive devices cannot be checked in, checked out, or marked missing in Phase 3A.");
+  }
+
+  if (transition === "check_in" && currentStatus !== "checked_out" && currentStatus !== "lost") {
+    throw new Error("Only devices with students or marked missing can be checked in.");
+  }
+
+  if (transition === "check_out" && currentStatus !== "returned") {
+    throw new Error("Only devices in school storage can be released to a student.");
+  }
+
+  if (
+    transition === "mark_missing" &&
+    currentStatus !== "checked_out" &&
+    currentStatus !== "returned"
+  ) {
+    throw new Error("Only active devices can be marked missing.");
+  }
+
+  if (transition === "set_inactive") {
+    if (!isAdmin) {
+      throw new Error("Only school admins can set a device inactive.");
+    }
+
+    if (!note) {
+      throw new Error("A note is required to set a device inactive.");
+    }
+  }
+}
+
+export async function transitionDeviceLifecycleAction(formData: FormData) {
+  const context = await requireDeviceWorkflowContext();
+  const supabase = createClient();
+  const schoolId = context.currentSchool.id;
+  const deviceId = requiredText(formData, "deviceId", "Device");
+  const transition = enumValue(
+    formData,
+    "transition",
+    lifecycleTransitions,
+    "Lifecycle action"
+  );
+  const note = nullableTextValue(formData, "notes");
+
+  if (!isUuid(deviceId)) {
+    throw new Error("Device is invalid.");
+  }
+
+  const { data: device, error: deviceError } = await supabase
+    .from("device_custody_devices")
+    .select("id,student_id,status")
+    .eq("school_id", schoolId)
+    .eq("id", deviceId)
+    .maybeSingle();
+
+  if (deviceError) {
+    throw new Error(`Could not load device: ${deviceError.message}`);
+  }
+
+  if (!device) {
+    throw new Error("No matching device was found for this school.");
+  }
+
+  const lifecycleDevice = device as LifecycleDeviceRow;
+  validateLifecycleTransition(
+    transition,
+    lifecycleDevice.status,
+    note,
+    isLifecycleAdmin(context.effectiveRole)
+  );
+
+  const eventNotes =
+    transition === "set_inactive" ? `Set inactive: ${note}` : note;
+  const { error: eventError } = await supabase.from("device_custody_events").insert({
+    school_id: schoolId,
+    device_id: lifecycleDevice.id,
+    student_id: lifecycleDevice.student_id,
+    action: lifecycleEventAction(transition),
+    method: "manual",
+    performed_by_user_id: context.authUser.id,
+    performed_at: new Date().toISOString(),
+    notes: eventNotes
+  });
+
+  if (eventError) {
+    throw new Error(`Could not record lifecycle event: ${eventError.message}`);
+  }
+
+  if (transition === "set_inactive") {
+    const { data: updatedDevice, error: updateError } = await supabase
+      .from("device_custody_devices")
+      .update({
+        status: "inactive",
+        updated_by_user_id: context.authUser.id
+      })
+      .eq("school_id", schoolId)
+      .eq("id", lifecycleDevice.id)
+      .eq("status", lifecycleDevice.status)
+      .select("id")
+      .maybeSingle();
+
+    if (updateError) {
+      throw new Error(`Could not set device inactive: ${updateError.message}`);
+    }
+
+    if (!updatedDevice) {
+      throw new Error("Device status changed before it could be set inactive. Refresh and try again.");
+    }
+  }
+
+  revalidatePath("/app/dashboard");
+  revalidatePath("/app/devices");
+  revalidatePath(`/app/devices/${lifecycleDevice.id}`);
+  revalidatePath(`/app/devices/${lifecycleDevice.id}/edit`);
+  revalidatePath("/app/returns");
+  revalidatePath("/app/returns/log");
+  redirect(`/app/devices/${lifecycleDevice.id}`);
+}
+
 export async function saveDeviceAction(formData: FormData) {
   const context = await requireDeviceWorkflowContext();
   const supabase = createClient();
   const deviceId = nullableTextValue(formData, "deviceId");
   const schoolId = context.currentSchool.id;
   const nowUserId = context.authUser.id;
+  const initialStatus = deviceId
+    ? null
+    : enumValue(formData, "status", deviceStatuses, "Status");
 
   const payload = {
     school_id: schoolId,
@@ -129,7 +292,6 @@ export async function saveDeviceAction(formData: FormData) {
     color: requiredText(formData, "color", "Color"),
     serial_number: nullableTextValue(formData, "serialNumber"),
     asset_tag: nullableTextValue(formData, "assetTag"),
-    status: enumValue(formData, "status", deviceStatuses, "Status"),
     return_due_at: nullableTimestamp(formData, "returnDueAt"),
     notes: nullableTextValue(formData, "notes"),
     updated_by_user_id: nowUserId
@@ -157,6 +319,7 @@ export async function saveDeviceAction(formData: FormData) {
     .insert({
       ...payload,
       qr_token: crypto.randomUUID(),
+      status: initialStatus ?? "checked_out",
       created_by_user_id: nowUserId
     })
     .select("id")

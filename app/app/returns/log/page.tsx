@@ -20,7 +20,7 @@ export default async function ReturnLogPage() {
     <div className="space-y-5">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <p className="text-sm font-medium text-brand">Return Log</p>
+          <p className="text-sm font-medium text-brand">Custody Log</p>
           <h1 className="mt-1 text-2xl font-semibold text-neutral-950">Recent custody events</h1>
         </div>
         <Link
