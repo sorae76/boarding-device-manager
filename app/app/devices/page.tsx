@@ -22,9 +22,10 @@ export default async function DeviceRegistryPage() {
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
           <p className="text-sm font-medium text-brand">Device Registry</p>
-          <h1 className="mt-1 text-2xl font-semibold text-neutral-950">
-            Student device custody
-          </h1>
+          <h1 className="mt-1 text-2xl font-semibold text-neutral-950">Registered Devices</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">
+            Manage registered student devices, CSV import/export, and inventory details.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
