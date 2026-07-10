@@ -19,7 +19,7 @@ export const deviceTypeLabels: Record<DeviceType, string> = {
 export const statusLabels: Record<DeviceCustodyStatus, string> = {
   checked_out: "With student / Released to student",
   returned: "Checked in / School storage",
-  inactive: "Inactive",
+  inactive: "Broken / Unusable",
   lost: "Missing / Lost"
 };
 

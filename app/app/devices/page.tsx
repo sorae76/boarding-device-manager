@@ -10,12 +10,66 @@ import {
   statusLabels,
   studentName
 } from "@/lib/devices/format";
+import type {
+  DeviceCustodyStatus,
+  DeviceRegistryAttention,
+  DeviceRegistryFilters
+} from "@/lib/devices/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function DeviceRegistryPage() {
+const statusFilters: DeviceCustodyStatus[] = ["checked_out", "returned", "inactive", "lost"];
+const filterLabels: Record<DeviceCustodyStatus | DeviceRegistryAttention, string> = {
+  checked_out: "With students now",
+  returned: "In device locker",
+  inactive: "Broken / unusable",
+  lost: "Missing / lost",
+  overdue: "Overdue returns"
+};
+
+type DeviceRegistryPageProps = {
+  searchParams?: {
+    attention?: string | string[];
+    status?: string | string[];
+  };
+};
+
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function getFilters(searchParams: DeviceRegistryPageProps["searchParams"]): DeviceRegistryFilters {
+  const attention = firstParam(searchParams?.attention);
+  const status = firstParam(searchParams?.status);
+
+  if (attention === "overdue") {
+    return { attention };
+  }
+
+  if (status && statusFilters.includes(status as DeviceCustodyStatus)) {
+    return { status: status as DeviceCustodyStatus };
+  }
+
+  return {};
+}
+
+function getFilterLabel(filters: DeviceRegistryFilters) {
+  if (filters.attention) {
+    return filterLabels[filters.attention];
+  }
+
+  if (filters.status) {
+    return filterLabels[filters.status];
+  }
+
+  return null;
+}
+
+export default async function DeviceRegistryPage({ searchParams }: DeviceRegistryPageProps) {
   const context = await requireDeviceWorkflowContext();
-  const devices = await listDevices(context);
+  const filters = getFilters(searchParams);
+  const activeFilterLabel = getFilterLabel(filters);
+  const devices = await listDevices(context, filters);
 
   return (
     <div className="space-y-5">
@@ -26,6 +80,16 @@ export default async function DeviceRegistryPage() {
           <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">
             Manage registered student devices, CSV import/export, and inventory details.
           </p>
+          {activeFilterLabel ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-700">
+                Filter: {activeFilterLabel}
+              </span>
+              <Link className="text-sm font-semibold text-brand" href="/app/devices">
+                View all devices
+              </Link>
+            </div>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <Link

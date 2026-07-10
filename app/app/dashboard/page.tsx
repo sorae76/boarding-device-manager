@@ -1,7 +1,10 @@
 import Link from "next/link";
 
 import { requireDeviceWorkflowContext } from "@/lib/devices/access";
-import { getDashboardStudentCustody } from "@/lib/devices/data";
+import {
+  getDashboardDeviceCounts,
+  getDashboardStudentCustody
+} from "@/lib/devices/data";
 import { studentName } from "@/lib/devices/format";
 import type { StudentCustodyStatus } from "@/lib/devices/types";
 
@@ -21,42 +24,157 @@ const statusStyles: Record<StudentCustodyStatus, string> = {
   no_devices: "bg-neutral-100 text-neutral-700"
 };
 
+type DashboardCard = {
+  detail: string;
+  href?: string;
+  state?: "normal" | "warning" | "disabled";
+  title: string;
+  value: string;
+};
+
+function cardStyles(state: DashboardCard["state"] = "normal") {
+  if (state === "warning") {
+    return "border-amber-200 bg-amber-50";
+  }
+
+  if (state === "disabled") {
+    return "border-neutral-200 bg-neutral-50";
+  }
+
+  return "border-neutral-200 bg-white";
+}
+
+function DashboardCard({ card }: { card: DashboardCard }) {
+  const content = (
+    <>
+      <p className="text-sm font-medium text-neutral-600">{card.title}</p>
+      <p className="mt-3 text-2xl font-semibold text-neutral-950">{card.value}</p>
+      <p className="mt-3 text-sm leading-5 text-neutral-500">{card.detail}</p>
+    </>
+  );
+  const className = `block min-h-[142px] rounded-lg border p-5 shadow-sm ${cardStyles(card.state)}`;
+
+  if (card.href) {
+    return (
+      <Link className={`${className} hover:border-brand hover:bg-neutral-50`} href={card.href}>
+        {content}
+      </Link>
+    );
+  }
+
+  return <article className={className}>{content}</article>;
+}
+
 export default async function DashboardPage() {
   const context = await requireDeviceWorkflowContext();
-  const custody = await getDashboardStudentCustody(context);
-  const cards = [
+  const [counts, custody] = await Promise.all([
+    getDashboardDeviceCounts(context),
+    getDashboardStudentCustody(context)
+  ]);
+  const locationCards: DashboardCard[] = [
     {
-      title: "Students with devices",
-      value: custody.studentsWithDevices.toString(),
-      detail: "Active students with at least one custody device."
+      title: "Total registered devices",
+      value: counts.registeredDevices.toString(),
+      detail: "All custody devices registered for the current school.",
+      href: "/app/devices"
     },
     {
-      title: "Complete / all returned",
-      value: custody.completeStudents.toString(),
-      detail: "Students with no devices out and no missing devices."
+      title: "With students now",
+      value: counts.withStudentsNow.toString(),
+      detail: "Devices currently released to students.",
+      href: "/app/devices?status=checked_out"
     },
     {
-      title: "Pending / with student",
-      value: custody.pendingStudents.toString(),
-      detail: "Students with at least one device still with them."
+      title: "In device locker",
+      value: counts.inDeviceLocker.toString(),
+      detail: "Devices checked in to school storage.",
+      href: "/app/devices?status=returned"
     },
     {
-      title: "Missing devices",
-      value: custody.missingDevices.toString(),
-      detail: "Lost devices across the current school."
+      title: "Overdue returns",
+      value: counts.overdueReturns.toString(),
+      detail: "Released devices past their return due time.",
+      href: "/app/devices?attention=overdue",
+      state: counts.overdueReturns > 0 ? "warning" : "normal"
+    },
+    {
+      title: "Missing / lost",
+      value: counts.missingLost.toString(),
+      detail: "Devices marked missing or lost.",
+      href: "/app/devices?status=lost",
+      state: counts.missingLost > 0 ? "warning" : "normal"
+    },
+    {
+      title: "Broken / unusable",
+      value: counts.brokenUnusable.toString(),
+      detail: "Devices stored as inactive until a dedicated status exists.",
+      href: "/app/devices?status=inactive"
+    },
+    {
+      title: "Pending notices",
+      value: counts.pendingNotices.toString(),
+      detail: "Post-return pass activity notices awaiting review.",
+      href: "/app/notices",
+      state: counts.pendingNotices > 0 ? "warning" : "normal"
+    },
+    {
+      title: "Disposed / retired",
+      value: "Not configured",
+      detail: "The current schema has no disposed or retired device status.",
+      state: "disabled"
+    },
+    {
+      title: "WiFi control",
+      value: "Not configured",
+      detail: "No WiFi identifier or block/allow job schema exists yet.",
+      state: "disabled"
+    },
+    {
+      title: "Student self-registration",
+      value: "Not configured",
+      detail: "No student request or Gmail matching schema exists yet.",
+      state: "disabled"
+    },
+    {
+      title: "Staff approval requests",
+      value: "Not configured",
+      detail: "No device registration request workflow exists yet.",
+      state: "disabled"
+    }
+  ];
+  const attentionItems = [
+    {
+      label: "Overdue returns",
+      value: counts.overdueReturns,
+      href: "/app/devices?attention=overdue"
+    },
+    {
+      label: "Missing / lost devices",
+      value: counts.missingLost,
+      href: "/app/devices?status=lost"
+    },
+    {
+      label: "Broken / unusable devices",
+      value: counts.brokenUnusable,
+      href: "/app/devices?status=inactive"
+    },
+    {
+      label: "Pending notices",
+      value: counts.pendingNotices,
+      href: "/app/notices"
     }
   ];
 
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
-        <p className="text-sm font-medium text-brand">Dorm Staff Dashboard</p>
+        <p className="text-sm font-medium text-brand">Device Location Control</p>
         <h1 className="mt-2 text-2xl font-semibold text-neutral-950">
-          {context.currentSchool.name} student custody
+          {context.currentSchool.name} device dashboard
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">
-          Review each student&apos;s assigned devices, what is still with them, what is checked in, and
-          what needs follow-up.
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">
+          Monitor where student devices are right now, which devices need staff follow-up, and
+          which control features still need schema support.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <Link
@@ -80,22 +198,62 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-4">
-        {cards.map((card) => (
-          <article
-            className="min-h-[140px] rounded-lg border border-neutral-200 bg-white p-5 shadow-sm"
-            key={card.title}
-          >
-            <p className="text-sm font-medium text-neutral-600">{card.title}</p>
-            <p className="mt-3 text-2xl font-semibold text-neutral-950">{card.value}</p>
-            <p className="mt-3 text-sm leading-5 text-neutral-500">{card.detail}</p>
-          </article>
-        ))}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold text-neutral-950">Device Location Overview</h2>
+          <p className="mt-1 text-sm text-neutral-600">
+            Counts use the existing custody status fields for this school only.
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          {locationCards.map((card) => (
+            <DashboardCard card={card} key={card.title} />
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+          <div>
+            <h2 className="text-lg font-semibold text-neutral-950">Attention Needed</h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              Devices and notices that need staff review before the end of the return cycle.
+            </p>
+          </div>
+          <Link className="text-sm font-semibold text-brand" href="/app/devices">
+            View all devices
+          </Link>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {attentionItems.map((item) => (
+            <Link
+              className="flex items-center justify-between rounded-md border border-neutral-200 px-4 py-3 hover:border-brand hover:bg-neutral-50"
+              href={item.href}
+              key={item.label}
+            >
+              <span className="text-sm font-medium text-neutral-700">{item.label}</span>
+              <span
+                className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                  item.value > 0 ? "bg-amber-100 text-amber-800" : "bg-neutral-100 text-neutral-700"
+                }`}
+              >
+                {item.value}
+              </span>
+            </Link>
+          ))}
+          <div className="rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3">
+            <p className="text-sm font-medium text-neutral-700">WiFi block/allow failures</p>
+            <p className="mt-1 text-sm text-neutral-500">Not configured until WiFi job schema exists.</p>
+          </div>
+        </div>
       </section>
 
       <section className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
         <div className="border-b border-neutral-200 px-5 py-4">
-          <h2 className="text-lg font-semibold text-neutral-950">Student custody</h2>
+          <h2 className="text-lg font-semibold text-neutral-950">Student Custody Summary</h2>
+          <p className="mt-1 text-sm text-neutral-600">
+            Student-first review remains available here and on the Students page.
+          </p>
         </div>
         <table className="w-full min-w-[900px] border-collapse text-left text-sm">
           <thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500">
@@ -105,7 +263,7 @@ export default async function DashboardPage() {
               <th className="px-4 py-3 font-semibold">With student</th>
               <th className="px-4 py-3 font-semibold">Checked in</th>
               <th className="px-4 py-3 font-semibold">Missing</th>
-              <th className="px-4 py-3 font-semibold">Inactive</th>
+              <th className="px-4 py-3 font-semibold">Broken</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 font-semibold">Action</th>
             </tr>
@@ -135,8 +293,8 @@ export default async function DashboardPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <Link className="font-semibold text-brand" href="/app/devices">
-                    View devices
+                  <Link className="font-semibold text-brand" href="/app/students">
+                    View students
                   </Link>
                 </td>
               </tr>

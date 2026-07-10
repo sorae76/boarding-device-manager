@@ -1,5 +1,12 @@
 export type DeviceCustodyStatus = "checked_out" | "returned" | "inactive" | "lost";
 
+export type DeviceRegistryAttention = "overdue";
+
+export type DeviceRegistryFilters = {
+  attention?: DeviceRegistryAttention;
+  status?: DeviceCustodyStatus;
+};
+
 export type DeviceCustodyEventAction =
   | "returned"
   | "checked_out"
@@ -62,9 +69,11 @@ export type CustodyEvent = {
 
 export type DashboardDeviceCounts = {
   registeredDevices: number;
-  checkedOutDevices: number;
-  returnedToday: number;
-  pendingOrMissing: number;
+  withStudentsNow: number;
+  inDeviceLocker: number;
+  overdueReturns: number;
+  missingLost: number;
+  brokenUnusable: number;
   pendingNotices: number;
 };
 

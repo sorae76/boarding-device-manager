@@ -8,6 +8,7 @@ import type {
   DashboardStudentCustody,
   DevicePass,
   DeviceCustodyStatus,
+  DeviceRegistryFilters,
   StudentCustodyStatus,
   StudentCustodySummary,
   StudentSummary
@@ -109,23 +110,6 @@ function normalizeNotice(row: NoticeRow): CustodyNotice {
   };
 }
 
-function todayIsoRange(timeZone: string) {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  });
-  const [year, month, day] = formatter.format(new Date()).split("-").map(Number);
-  const start = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
-  const end = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0));
-
-  return {
-    start: start.toISOString(),
-    end: end.toISOString()
-  };
-}
-
 export async function listStudents(context: DeviceWorkflowContext): Promise<StudentSummary[]> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -143,13 +127,25 @@ export async function listStudents(context: DeviceWorkflowContext): Promise<Stud
   return (data ?? []) as StudentSummary[];
 }
 
-export async function listDevices(context: DeviceWorkflowContext): Promise<CustodyDevice[]> {
+export async function listDevices(
+  context: DeviceWorkflowContext,
+  filters: DeviceRegistryFilters = {}
+): Promise<CustodyDevice[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("device_custody_devices")
     .select(deviceSelect)
-    .eq("school_id", context.currentSchool.id)
-    .order("updated_at", { ascending: false });
+    .eq("school_id", context.currentSchool.id);
+
+  if (filters.attention === "overdue") {
+    query = query
+      .eq("status", "checked_out")
+      .lt("return_due_at", new Date().toISOString());
+  } else if (filters.status) {
+    query = query.eq("status", filters.status);
+  }
+
+  const { data, error } = await query.order("updated_at", { ascending: false });
 
   if (error) {
     throw new Error(`Could not load devices: ${error.message}`);
@@ -370,13 +366,13 @@ export async function getDashboardDeviceCounts(
 ): Promise<DashboardDeviceCounts> {
   const supabase = createClient();
   const schoolId = context.currentSchool.id;
-  const { start, end } = todayIsoRange(context.currentSchool?.timezone ?? "America/New_York");
 
   const [
     registeredResult,
     checkedOutResult,
-    returnedTodayResult,
+    returnedResult,
     lostResult,
+    inactiveResult,
     overdueResult,
     pendingNoticesResult
   ] = await Promise.all([
@@ -390,17 +386,20 @@ export async function getDashboardDeviceCounts(
       .eq("school_id", schoolId)
       .eq("status", "checked_out"),
     supabase
-      .from("device_custody_events")
+      .from("device_custody_devices")
       .select("id", { count: "exact", head: true })
       .eq("school_id", schoolId)
-      .eq("action", "returned")
-      .gte("performed_at", start)
-      .lt("performed_at", end),
+      .eq("status", "returned"),
     supabase
       .from("device_custody_devices")
       .select("id", { count: "exact", head: true })
       .eq("school_id", schoolId)
       .eq("status", "lost"),
+    supabase
+      .from("device_custody_devices")
+      .select("id", { count: "exact", head: true })
+      .eq("school_id", schoolId)
+      .eq("status", "inactive"),
     supabase
       .from("device_custody_devices")
       .select("id", { count: "exact", head: true })
@@ -417,8 +416,9 @@ export async function getDashboardDeviceCounts(
   const errors = [
     registeredResult.error,
     checkedOutResult.error,
-    returnedTodayResult.error,
+    returnedResult.error,
     lostResult.error,
+    inactiveResult.error,
     overdueResult.error,
     pendingNoticesResult.error
   ].filter(Boolean);
@@ -429,9 +429,11 @@ export async function getDashboardDeviceCounts(
 
   return {
     registeredDevices: registeredResult.count ?? 0,
-    checkedOutDevices: checkedOutResult.count ?? 0,
-    returnedToday: returnedTodayResult.count ?? 0,
-    pendingOrMissing: (lostResult.count ?? 0) + (overdueResult.count ?? 0),
+    withStudentsNow: checkedOutResult.count ?? 0,
+    inDeviceLocker: returnedResult.count ?? 0,
+    overdueReturns: overdueResult.count ?? 0,
+    missingLost: lostResult.count ?? 0,
+    brokenUnusable: inactiveResult.count ?? 0,
     pendingNotices: pendingNoticesResult.count ?? 0
   };
 }
