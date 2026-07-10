@@ -1,28 +1,9 @@
 import Link from "next/link";
 
 import { requireDeviceWorkflowContext } from "@/lib/devices/access";
-import {
-  getDashboardDeviceCounts,
-  getDashboardStudentCustody
-} from "@/lib/devices/data";
-import { studentName } from "@/lib/devices/format";
-import type { StudentCustodyStatus } from "@/lib/devices/types";
+import { getDashboardDeviceCounts } from "@/lib/devices/data";
 
 export const dynamic = "force-dynamic";
-
-const statusLabels: Record<StudentCustodyStatus, string> = {
-  complete: "Complete",
-  pending: "Pending",
-  missing: "Missing",
-  no_devices: "No devices"
-};
-
-const statusStyles: Record<StudentCustodyStatus, string> = {
-  complete: "bg-emerald-50 text-emerald-700",
-  pending: "bg-amber-50 text-amber-700",
-  missing: "bg-rose-50 text-rose-700",
-  no_devices: "bg-neutral-100 text-neutral-700"
-};
 
 type DashboardCard = {
   detail: string;
@@ -67,10 +48,7 @@ function DashboardCard({ card }: { card: DashboardCard }) {
 
 export default async function DashboardPage() {
   const context = await requireDeviceWorkflowContext();
-  const [counts, custody] = await Promise.all([
-    getDashboardDeviceCounts(context),
-    getDashboardStudentCustody(context)
-  ]);
+  const counts = await getDashboardDeviceCounts(context);
   const locationCards: DashboardCard[] = [
     {
       title: "Total registered devices",
@@ -195,6 +173,12 @@ export default async function DashboardPage() {
           >
             Review notices
           </Link>
+          <Link
+            className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-100"
+            href="/app/students"
+          >
+            View all students
+          </Link>
         </div>
       </section>
 
@@ -248,67 +232,6 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
-        <div className="border-b border-neutral-200 px-5 py-4">
-          <h2 className="text-lg font-semibold text-neutral-950">Student Custody Summary</h2>
-          <p className="mt-1 text-sm text-neutral-600">
-            Student-first review remains available here and on the Students page.
-          </p>
-        </div>
-        <table className="w-full min-w-[900px] border-collapse text-left text-sm">
-          <thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500">
-            <tr>
-              <th className="px-4 py-3 font-semibold">Student</th>
-              <th className="px-4 py-3 font-semibold">Total devices</th>
-              <th className="px-4 py-3 font-semibold">With student</th>
-              <th className="px-4 py-3 font-semibold">Checked in</th>
-              <th className="px-4 py-3 font-semibold">Missing</th>
-              <th className="px-4 py-3 font-semibold">Broken</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-neutral-200">
-            {custody.studentSummaries.map((summary) => (
-              <tr key={summary.student.id} className="hover:bg-neutral-50">
-                <td className="px-4 py-3">
-                  <p className="font-semibold text-neutral-950">{studentName(summary.student)}</p>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    {summary.student.student_number ?? "No student number"}
-                    {summary.student.grade_level ? ` / Grade ${summary.student.grade_level}` : ""}
-                  </p>
-                </td>
-                <td className="px-4 py-3 text-neutral-700">{summary.totalDevices}</td>
-                <td className="px-4 py-3 text-neutral-700">{summary.checkedOutDevices}</td>
-                <td className="px-4 py-3 text-neutral-700">{summary.returnedDevices}</td>
-                <td className="px-4 py-3 text-neutral-700">{summary.lostDevices}</td>
-                <td className="px-4 py-3 text-neutral-700">{summary.inactiveDevices}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                      statusStyles[summary.status]
-                    }`}
-                  >
-                    {statusLabels[summary.status]}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <Link className="font-semibold text-brand" href="/app/students">
-                    View students
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {custody.studentSummaries.length === 0 ? (
-              <tr>
-                <td className="px-4 py-8 text-center text-neutral-500" colSpan={8}>
-                  No active students are available for this school.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </section>
     </div>
   );
 }
