@@ -5,7 +5,11 @@ import type {
   CustodyEvent,
   CustodyNotice,
   DashboardDeviceCounts,
+  DashboardStudentCustody,
   DevicePass,
+  DeviceCustodyStatus,
+  StudentCustodyStatus,
+  StudentCustodySummary,
   StudentSummary
 } from "@/lib/devices/types";
 
@@ -164,6 +168,76 @@ export async function getDeviceCountsByStudentId(
 
     return counts;
   }, {});
+}
+
+function custodyStatusForCounts(
+  totalDevices: number,
+  checkedOutDevices: number,
+  lostDevices: number
+): StudentCustodyStatus {
+  if (totalDevices === 0) {
+    return "no_devices";
+  }
+
+  if (lostDevices > 0) {
+    return "missing";
+  }
+
+  if (checkedOutDevices > 0) {
+    return "pending";
+  }
+
+  return "complete";
+}
+
+export async function getDashboardStudentCustody(
+  context: DeviceWorkflowContext
+): Promise<DashboardStudentCustody> {
+  const [students, devices] = await Promise.all([listStudents(context), listDevices(context)]);
+  const countsByStudentId = devices.reduce<
+    Record<string, Record<DeviceCustodyStatus, number>>
+  >((counts, device) => {
+    const studentCounts = counts[device.student_id] ?? {
+      checked_out: 0,
+      returned: 0,
+      inactive: 0,
+      lost: 0
+    };
+
+    studentCounts[device.status] += 1;
+    counts[device.student_id] = studentCounts;
+
+    return counts;
+  }, {});
+
+  const studentSummaries: StudentCustodySummary[] = students.map((student) => {
+    const counts = countsByStudentId[student.id] ?? {
+      checked_out: 0,
+      returned: 0,
+      inactive: 0,
+      lost: 0
+    };
+    const totalDevices =
+      counts.checked_out + counts.returned + counts.inactive + counts.lost;
+
+    return {
+      student,
+      totalDevices,
+      checkedOutDevices: counts.checked_out,
+      returnedDevices: counts.returned,
+      lostDevices: counts.lost,
+      inactiveDevices: counts.inactive,
+      status: custodyStatusForCounts(totalDevices, counts.checked_out, counts.lost)
+    };
+  });
+
+  return {
+    studentsWithDevices: studentSummaries.filter((summary) => summary.totalDevices > 0).length,
+    completeStudents: studentSummaries.filter((summary) => summary.status === "complete").length,
+    pendingStudents: studentSummaries.filter((summary) => summary.checkedOutDevices > 0).length,
+    missingDevices: devices.filter((device) => device.status === "lost").length,
+    studentSummaries
+  };
 }
 
 export async function getExistingDeviceAssetTags(context: DeviceWorkflowContext): Promise<string[]> {

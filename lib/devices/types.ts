@@ -68,6 +68,26 @@ export type DashboardDeviceCounts = {
   pendingNotices: number;
 };
 
+export type StudentCustodyStatus = "complete" | "pending" | "missing" | "no_devices";
+
+export type StudentCustodySummary = {
+  student: StudentSummary;
+  totalDevices: number;
+  checkedOutDevices: number;
+  returnedDevices: number;
+  lostDevices: number;
+  inactiveDevices: number;
+  status: StudentCustodyStatus;
+};
+
+export type DashboardStudentCustody = {
+  studentsWithDevices: number;
+  completeStudents: number;
+  pendingStudents: number;
+  missingDevices: number;
+  studentSummaries: StudentCustodySummary[];
+};
+
 export type DeviceCustodyNoticeStatus =
   | "pending"
   | "reviewed"
