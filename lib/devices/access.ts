@@ -15,6 +15,24 @@ export function canAccessDeviceWorkflows(context: CurrentSessionContext) {
   );
 }
 
+export function canAccessDeviceDashboard(context: CurrentSessionContext) {
+  return (
+    context.effectiveRole === "super_admin" ||
+    context.effectiveRole === "school_admin" ||
+    context.effectiveRole === "dorm_supervisor"
+  );
+}
+
+export async function requireDeviceDashboardContext() {
+  const context = await requireSessionContext();
+
+  if (!canAccessDeviceDashboard(context) || !context.currentSchool) {
+    notFound();
+  }
+
+  return context as DeviceWorkflowContext;
+}
+
 export async function requireDeviceWorkflowContext() {
   const context = await requireSessionContext();
 

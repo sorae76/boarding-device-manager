@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { requireDeviceWorkflowContext } from "@/lib/devices/access";
+import { requireDeviceDashboardContext } from "@/lib/devices/access";
 import { getDashboardDeviceCounts } from "@/lib/devices/data";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +47,7 @@ function DashboardCard({ card }: { card: DashboardCard }) {
 }
 
 export default async function DashboardPage() {
-  const context = await requireDeviceWorkflowContext();
+  const context = await requireDeviceDashboardContext();
   const counts = await getDashboardDeviceCounts(context);
   const locationCards: DashboardCard[] = [
     {

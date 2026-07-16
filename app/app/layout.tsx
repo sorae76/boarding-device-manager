@@ -2,7 +2,8 @@ import Link from "next/link";
 
 import { getRoleLabel } from "@/lib/auth/roles";
 import { requireSessionContext } from "@/lib/auth/session";
-import { canAccessDeviceWorkflows } from "@/lib/devices/access";
+import { canAccessDeviceDashboard, canAccessDeviceWorkflows } from "@/lib/devices/access";
+import { canReadResidences } from "@/lib/residences/access";
 import LogoutButton from "@/components/logout-button";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,9 @@ export default async function ProtectedAppLayout({
   children: React.ReactNode;
 }>) {
   const context = await requireSessionContext();
+  const canUseDashboard = canAccessDeviceDashboard(context);
   const canUseDeviceWorkflows = canAccessDeviceWorkflows(context);
+  const canUseResidences = canReadResidences(context);
 
   return (
     <div className="min-h-screen bg-[#f7f7f8]">
@@ -27,12 +30,14 @@ export default async function ProtectedAppLayout({
             </p>
           </div>
           <nav className="flex flex-wrap items-center gap-2 text-sm">
-            <Link
-              className="rounded-md px-3 py-2 font-medium text-neutral-700 hover:bg-neutral-100"
-              href="/app/dashboard"
-            >
-              Dashboard
-            </Link>
+            {canUseDashboard ? (
+              <Link
+                className="rounded-md px-3 py-2 font-medium text-neutral-700 hover:bg-neutral-100"
+                href="/app/dashboard"
+              >
+                Dashboard
+              </Link>
+            ) : null}
             {canUseDeviceWorkflows ? (
               <>
                 <Link
@@ -47,6 +52,18 @@ export default async function ProtectedAppLayout({
                 >
                   Devices
                 </Link>
+              </>
+            ) : null}
+            {canUseResidences ? (
+              <Link
+                className="rounded-md px-3 py-2 font-medium text-neutral-700 hover:bg-neutral-100"
+                href="/app/residences"
+              >
+                Residences
+              </Link>
+            ) : null}
+            {canUseDeviceWorkflows ? (
+              <>
                 <Link
                   className="rounded-md px-3 py-2 font-medium text-neutral-700 hover:bg-neutral-100"
                   href="/app/returns"

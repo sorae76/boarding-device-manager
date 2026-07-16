@@ -19,9 +19,5 @@ export function getDefaultAppPath(context: CurrentSessionContext) {
     return "/app/settings";
   }
 
-  if (context.effectiveRole === "school_admin" || context.effectiveRole === "dorm_supervisor") {
-    return "/app/settings";
-  }
-
-  return "/app/dashboard";
+  return "/app/residences";
 }

@@ -1,14 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { getSafeAppNextPath } from "@/lib/auth/redirects";
 import { createRouteHandlerClient } from "@/lib/supabase/server";
-
-function getSafeNextPath(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) {
-    return "/app/dashboard";
-  }
-
-  return value;
-}
 
 function getSafeFailureReason(error: { code?: string; name?: string } | null) {
   const reason = error?.code ?? error?.name ?? "exchange_failed";
@@ -20,7 +13,7 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const rawNext = requestUrl.searchParams.get("next");
-  const next = getSafeNextPath(rawNext);
+  const next = getSafeAppNextPath(rawNext);
   let failureReason = code ? "exchange_failed" : "missing_code";
 
   if (code) {

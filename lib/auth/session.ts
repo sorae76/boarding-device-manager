@@ -138,7 +138,7 @@ export async function requireSessionContext() {
   const { context, reason } = await loadCurrentSessionContext();
 
   if (!context) {
-    redirect(`/login?error=session&reason=${reason}&next=%2Fapp%2Fdashboard`);
+    redirect(`/login?error=session&reason=${reason}&next=%2Fapp%2Fresidences`);
   }
 
   return context;

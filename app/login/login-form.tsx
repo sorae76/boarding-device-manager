@@ -3,19 +3,12 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { getSafeAppNextPath } from "@/lib/auth/redirects";
 import { createClient } from "@/lib/supabase/browser";
 
 type LoginFormProps = {
   isAuthConfigured: boolean;
 };
-
-function getSafeNextPath(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) {
-    return "/app/dashboard";
-  }
-
-  return value;
-}
 
 export default function LoginForm({ isAuthConfigured }: LoginFormProps) {
   const router = useRouter();
@@ -25,7 +18,7 @@ export default function LoginForm({ isAuthConfigured }: LoginFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const queryString = searchParams.toString();
-  const nextPath = getSafeNextPath(searchParams.get("next"));
+  const nextPath = getSafeAppNextPath(searchParams.get("next"));
   const callbackError = searchParams.get("error");
   const callbackReason = searchParams.get("reason");
 
