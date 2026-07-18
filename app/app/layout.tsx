@@ -4,6 +4,7 @@ import { getRoleLabel } from "@/lib/auth/roles";
 import { requireSessionContext } from "@/lib/auth/session";
 import { canAccessDeviceDashboard, canAccessDeviceWorkflows } from "@/lib/devices/access";
 import { canReadResidences } from "@/lib/residences/access";
+import { canReadStudents } from "@/lib/students/access";
 import LogoutButton from "@/components/logout-button";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export default async function ProtectedAppLayout({
   const canUseDashboard = canAccessDeviceDashboard(context);
   const canUseDeviceWorkflows = canAccessDeviceWorkflows(context);
   const canUseResidences = canReadResidences(context);
+  const canUseStudents = canReadStudents(context);
 
   return (
     <div className="min-h-screen bg-[#f7f7f8]">
@@ -38,14 +40,16 @@ export default async function ProtectedAppLayout({
                 Dashboard
               </Link>
             ) : null}
-            {canUseDeviceWorkflows ? (
-              <>
+            {canUseStudents ? (
                 <Link
                   className="rounded-md px-3 py-2 font-medium text-neutral-700 hover:bg-neutral-100"
                   href="/app/students"
                 >
                   Students
                 </Link>
+            ) : null}
+            {canUseDeviceWorkflows ? (
+              <>
                 <Link
                   className="rounded-md px-3 py-2 font-medium text-neutral-700 hover:bg-neutral-100"
                   href="/app/devices"
