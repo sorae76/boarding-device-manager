@@ -117,7 +117,7 @@ export default function StudentManagement({
               <th className="px-4 py-3 font-semibold">Missing</th>
               <th className="px-4 py-3 font-semibold">Inactive</th>
               <th className="px-4 py-3 font-semibold">Status</th>
-              {canManage ? <th className="px-4 py-3 font-semibold">Assignment</th> : null}
+              {canManage ? <th className="px-4 py-3 font-semibold">Manage residence</th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-200">
