@@ -25,6 +25,13 @@ export function canManageStudentPrimaryResidence(context: CurrentSessionContext)
   );
 }
 
+export function canManageStudentAccountEmail(context: CurrentSessionContext) {
+  return (
+    context.effectiveRole === "super_admin" ||
+    context.effectiveRole === "school_admin"
+  );
+}
+
 export async function requireStudentContext() {
   const context = await requireSessionContext();
 

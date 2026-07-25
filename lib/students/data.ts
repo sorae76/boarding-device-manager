@@ -1,6 +1,9 @@
 import { getDashboardStudentCustody } from "@/lib/devices/data";
 import { createClient } from "@/lib/supabase/server";
-import type { StudentContext } from "@/lib/students/access";
+import {
+  canManageStudentAccountEmail,
+  type StudentContext
+} from "@/lib/students/access";
 import type {
   StudentManagementRow,
   StudentResidence,
@@ -13,6 +16,8 @@ type StudentResidenceQueryRow = {
   id: string;
   dorm_id: string | null;
   dorms: ResidenceRelation;
+  school_email?: string | null;
+  auth_user_id?: string | null;
 };
 
 function singleResidence(value: ResidenceRelation): StudentResidence | null {
@@ -23,11 +28,19 @@ export async function listStudentResidenceRows(
   context: StudentContext
 ): Promise<StudentResidenceRow[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("students")
-    .select("id,dorm_id,dorms(id,name,code,is_active)")
-    .eq("school_id", context.currentSchool.id)
-    .eq("status", "active");
+  const includeAccountData = canManageStudentAccountEmail(context);
+  const result = includeAccountData
+    ? await supabase
+        .from("students")
+        .select("id,dorm_id,school_email,auth_user_id,dorms(id,name,code,is_active)")
+        .eq("school_id", context.currentSchool.id)
+        .eq("status", "active")
+    : await supabase
+        .from("students")
+        .select("id,dorm_id,dorms(id,name,code,is_active)")
+        .eq("school_id", context.currentSchool.id)
+        .eq("status", "active");
+  const { data, error } = result;
 
   if (error) {
     throw new Error("Could not load student residences.");
@@ -36,7 +49,13 @@ export async function listStudentResidenceRows(
   return ((data ?? []) as StudentResidenceQueryRow[]).map((row) => ({
     id: row.id,
     dorm_id: row.dorm_id,
-    primaryResidence: singleResidence(row.dorms)
+    primaryResidence: singleResidence(row.dorms),
+    ...(includeAccountData
+      ? {
+          school_email: row.school_email ?? null,
+          auth_user_id: row.auth_user_id ?? null
+        }
+      : {})
   }));
 }
 
@@ -72,6 +91,12 @@ export async function getStudentManagementData(context: StudentContext) {
       ...summary.student,
       dorm_id: residence?.dorm_id ?? null,
       primaryResidence: residence?.primaryResidence ?? null,
+      ...(canManageStudentAccountEmail(context)
+        ? {
+            school_email: residence?.school_email ?? null,
+            auth_user_id: residence?.auth_user_id ?? null
+          }
+        : {}),
       totalDevices: summary.totalDevices,
       checkedOutDevices: summary.checkedOutDevices,
       returnedDevices: summary.returnedDevices,

@@ -7,7 +7,8 @@ const roleLabels: Record<SchoolRole | "super_admin" | "user", string> = {
   dorm_supervisor: "Dorm Supervisor",
   dorm_staff: "Dorm Staff",
   viewer: "Viewer",
-  parent: "Parent"
+  parent: "Parent",
+  student: "Student"
 };
 
 export function getRoleLabel(role: CurrentSessionContext["effectiveRole"]) {
@@ -15,6 +16,10 @@ export function getRoleLabel(role: CurrentSessionContext["effectiveRole"]) {
 }
 
 export function getDefaultAppPath(context: CurrentSessionContext) {
+  if (context.effectiveRole === "student") {
+    return "/student";
+  }
+
   if (context.effectiveRole === "super_admin") {
     return "/app/settings";
   }

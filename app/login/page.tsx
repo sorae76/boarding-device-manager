@@ -6,11 +6,15 @@ import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams
+}: {
+  searchParams: { error?: string; reason?: string };
+}) {
   const hasEnv = hasPublicSupabaseEnv();
   const context = hasEnv ? await getCurrentSessionContext() : null;
 
-  if (context) {
+  if (context && !searchParams.error) {
     redirect(getDefaultAppPath(context));
   }
 
@@ -29,6 +33,21 @@ export default async function LoginPage() {
         {!hasEnv ? (
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-800">
             Add local Supabase values to `.env.local` to enable sign-in.
+          </div>
+        ) : null}
+        {searchParams.error === "student_account_not_set_up" ? (
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-800">
+            Your student account has not been set up. Contact school staff.
+          </div>
+        ) : null}
+        {searchParams.reason === "student_identity_link_invalid" ? (
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-800">
+            Your student account is inactive. Contact school staff.
+          </div>
+        ) : null}
+        {searchParams.error === "student_claim" ? (
+          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-800">
+            Your student account could not be verified. Contact school staff.
           </div>
         ) : null}
         <LoginForm isAuthConfigured={hasEnv} />

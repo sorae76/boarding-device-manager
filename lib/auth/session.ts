@@ -109,6 +109,19 @@ async function loadCurrentSessionContext(): Promise<SessionContextResult> {
     };
   }
 
+  if (currentMembership.role === "student") {
+    const { data: linkedStudents, error: linkedStudentError } = await supabase.rpc(
+      "get_current_student_portal_profile"
+    );
+
+    if (linkedStudentError || linkedStudents?.length !== 1) {
+      return {
+        context: null,
+        reason: "student_identity_link_invalid"
+      };
+    }
+  }
+
   return {
     context: {
       authUser: {

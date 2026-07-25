@@ -18,7 +18,8 @@ export default function LoginForm({ isAuthConfigured }: LoginFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const queryString = searchParams.toString();
-  const nextPath = getSafeAppNextPath(searchParams.get("next"));
+  const requestedNext = searchParams.get("next");
+  const nextPath = getSafeAppNextPath(requestedNext);
   const callbackError = searchParams.get("error");
   const callbackReason = searchParams.get("reason");
 
@@ -50,7 +51,9 @@ export default function LoginForm({ isAuthConfigured }: LoginFormProps) {
     setIsSubmitting(true);
     const supabase = createClient();
     const redirectTo = new URL("/auth/callback", window.location.origin);
-    redirectTo.searchParams.set("next", nextPath);
+    if (requestedNext) {
+      redirectTo.searchParams.set("next", nextPath);
+    }
 
     try {
       const { data, error: signInError } = await supabase.auth.signInWithOAuth({

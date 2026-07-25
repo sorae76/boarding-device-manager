@@ -3,7 +3,8 @@ export type SchoolRole =
   | "dorm_supervisor"
   | "dorm_staff"
   | "viewer"
-  | "parent";
+  | "parent"
+  | "student";
 
 export type GlobalRole = "super_admin" | "user";
 

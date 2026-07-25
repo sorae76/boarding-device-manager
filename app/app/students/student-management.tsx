@@ -4,7 +4,10 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useFormState, useFormStatus } from "react-dom";
 
-import { setStudentPrimaryResidenceAction } from "@/lib/students/actions";
+import {
+  setStudentPrimaryResidenceAction,
+  setStudentSchoolEmailAction
+} from "@/lib/students/actions";
 import type {
   StudentActionState,
   StudentManagementRow,
@@ -90,6 +93,65 @@ function ResidenceForm({
   );
 }
 
+function AccountEmailForm({ student }: { student: StudentManagementRow }) {
+  const [state, formAction] = useFormState(setStudentSchoolEmailAction, initialState);
+  const router = useRouter();
+  const linked = Boolean(student.auth_user_id);
+
+  useEffect(() => {
+    if (state.status === "success") {
+      router.refresh();
+    }
+  }, [router, state.status]);
+
+  return (
+    <div className="min-w-[280px] space-y-2">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          {linked
+            ? "Linked"
+            : student.school_email
+              ? "Ready for first login"
+              : "Not configured"}
+        </p>
+        {linked ? (
+          <p className="mt-1 text-sm text-neutral-700">{student.school_email}</p>
+        ) : (
+          <form action={formAction} className="mt-1 space-y-2">
+            <input name="studentId" type="hidden" value={student.id} />
+            <div className="flex gap-2">
+              <input
+                aria-label={`School email for ${student.first_name} ${student.last_name}`}
+                className="h-9 min-w-0 flex-1 rounded-md border border-neutral-300 px-2 text-sm"
+                defaultValue={student.school_email ?? ""}
+                name="schoolEmail"
+                placeholder="student@school.org"
+                type="email"
+              />
+              <SaveButton />
+            </div>
+            <p className="text-xs text-neutral-500">
+              Use the exact Google school account. Leave blank to clear.
+            </p>
+          </form>
+        )}
+      </div>
+      {linked ? (
+        <p className="text-xs text-neutral-500">Linked account emails cannot be changed.</p>
+      ) : null}
+      {state.message ? (
+        <p
+          className={`text-xs font-medium ${
+            state.status === "success" ? "text-green-700" : "text-brand"
+          }`}
+        >
+          {state.message}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function studentName(student: StudentManagementRow) {
   return `${student.last_name}, ${student.first_name}`;
 }
@@ -97,10 +159,12 @@ function studentName(student: StudentManagementRow) {
 export default function StudentManagement({
   activeResidences,
   canManage,
+  canManageAccounts,
   students
 }: {
   activeResidences: StudentResidence[];
   canManage: boolean;
+  canManageAccounts: boolean;
   students: StudentManagementRow[];
 }) {
   return (
@@ -117,6 +181,9 @@ export default function StudentManagement({
               <th className="px-4 py-3 font-semibold">Missing</th>
               <th className="px-4 py-3 font-semibold">Inactive</th>
               <th className="px-4 py-3 font-semibold">Status</th>
+              {canManageAccounts ? (
+                <th className="px-4 py-3 font-semibold">Student account</th>
+              ) : null}
               {canManage ? <th className="px-4 py-3 font-semibold">Manage residence</th> : null}
             </tr>
           </thead>
@@ -155,6 +222,11 @@ export default function StudentManagement({
                     {statusLabels[student.custodyStatus]}
                   </span>
                 </td>
+                {canManageAccounts ? (
+                  <td className="px-4 py-3">
+                    <AccountEmailForm student={student} />
+                  </td>
+                ) : null}
                 {canManage ? (
                   <td className="px-4 py-3">
                     <ResidenceForm activeResidences={activeResidences} student={student} />
@@ -164,7 +236,10 @@ export default function StudentManagement({
             ))}
             {students.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-center text-neutral-500" colSpan={canManage ? 9 : 8}>
+                <td
+                  className="px-4 py-8 text-center text-neutral-500"
+                  colSpan={8 + (canManageAccounts ? 1 : 0) + (canManage ? 1 : 0)}
+                >
                   No active students are available for this school.
                 </td>
               </tr>

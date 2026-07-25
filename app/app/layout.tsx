@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { getRoleLabel } from "@/lib/auth/roles";
 import { requireSessionContext } from "@/lib/auth/session";
@@ -15,6 +16,10 @@ export default async function ProtectedAppLayout({
   children: React.ReactNode;
 }>) {
   const context = await requireSessionContext();
+
+  if (context.effectiveRole === "student") {
+    redirect("/student");
+  }
   const canUseDashboard = canAccessDeviceDashboard(context);
   const canUseDeviceWorkflows = canAccessDeviceWorkflows(context);
   const canUseResidences = canReadResidences(context);

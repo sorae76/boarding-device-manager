@@ -1,5 +1,6 @@
 import StudentManagement from "@/app/app/students/student-management";
 import {
+  canManageStudentAccountEmail,
   canManageStudentPrimaryResidence,
   requireStudentContext
 } from "@/lib/students/access";
@@ -24,6 +25,7 @@ export default async function StudentsPage() {
       <StudentManagement
         activeResidences={activeResidences}
         canManage={canManageStudentPrimaryResidence(context)}
+        canManageAccounts={canManageStudentAccountEmail(context)}
         students={students}
       />
     </div>

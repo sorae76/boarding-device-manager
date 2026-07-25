@@ -11,3 +11,10 @@ export function getSafeAppNextPath(value: string | null) {
 
   return value;
 }
+
+export function getRoleAwareNextPath(
+  effectiveRole: "student" | string,
+  safeStaffNext: string
+) {
+  return effectiveRole === "student" ? "/student" : safeStaffNext;
+}

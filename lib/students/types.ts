@@ -11,6 +11,8 @@ export type StudentResidenceRow = {
   id: string;
   dorm_id: string | null;
   primaryResidence: StudentResidence | null;
+  school_email?: string | null;
+  auth_user_id?: string | null;
 };
 
 export type StudentManagementRow = StudentResidenceRow & {
@@ -24,6 +26,8 @@ export type StudentManagementRow = StudentResidenceRow & {
   lostDevices: number;
   inactiveDevices: number;
   custodyStatus: StudentCustodyStatus;
+  school_email?: string | null;
+  auth_user_id?: string | null;
 };
 
 export type StudentActionState = {
