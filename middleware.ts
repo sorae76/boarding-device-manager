@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import type { CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
+import { applyAppAuthGuard } from "@/lib/auth/middleware";
 import { hasPublicSupabaseEnv } from "@/lib/supabase/env";
 
 const PUBLIC_AUTH_PATHS = ["/login", "/auth/callback"];
@@ -60,21 +61,7 @@ export async function middleware(request: NextRequest) {
     }
   });
 
-  const {
-    data: { user },
-    error: userError
-  } = await supabase.auth.getUser();
-
-  if (!user && request.nextUrl.pathname.startsWith("/app") && !isPublicAuthPath(request.nextUrl.pathname)) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("error", "session");
-    loginUrl.searchParams.set("reason", userError ? "auth_user_error" : "missing_auth_user");
-    loginUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  return response;
+  return applyAppAuthGuard(request, () => response, () => supabase.auth.getUser());
 }
 
 export const config = {

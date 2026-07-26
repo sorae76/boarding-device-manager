@@ -15,7 +15,7 @@ export default async function ProtectedAppLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const context = await requireSessionContext();
+  const context = await requireSessionContext("/app");
 
   if (context.effectiveRole === "student") {
     redirect("/student");

@@ -2,6 +2,10 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { hasPublicSupabaseEnv } from "@/lib/supabase/env";
+import {
+  getAuthUserFailureReason,
+  getSessionLoginPath
+} from "@/lib/auth/session-state";
 import type { CurrentSessionContext, SchoolMembership } from "@/lib/auth/types";
 
 type MembershipRow = Omit<SchoolMembership, "schools"> & {
@@ -55,10 +59,12 @@ async function loadCurrentSessionContext(): Promise<SessionContextResult> {
     error: userError
   } = await supabase.auth.getUser();
 
-  if (userError || !user) {
+  const authUserFailureReason = getAuthUserFailureReason(user, userError);
+
+  if (!user || authUserFailureReason) {
     return {
       context: null,
-      reason: userError ? "auth_user_error" : "missing_auth_user"
+      reason: authUserFailureReason ?? "missing_auth_user"
     };
   }
 
@@ -147,11 +153,11 @@ export async function getCurrentSessionContext(): Promise<CurrentSessionContext 
   return context;
 }
 
-export async function requireSessionContext() {
+export async function requireSessionContext(nextPath = "/app/residences") {
   const { context, reason } = await loadCurrentSessionContext();
 
   if (!context) {
-    redirect(`/login?error=session&reason=${reason}&next=%2Fapp%2Fresidences`);
+    redirect(getSessionLoginPath(reason, nextPath));
   }
 
   return context;

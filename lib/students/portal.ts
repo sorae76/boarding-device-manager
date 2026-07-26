@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getDefaultAppPath } from "@/lib/auth/roles";
 import { requireSessionContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { runStudentPortalFlow } from "@/lib/students/portal-flow";
 import type { DeviceCustodyStatus, DeviceType } from "@/lib/devices/types";
 
 export type StudentPortalStudent = {
@@ -28,33 +29,29 @@ export type StudentPortalDevice = {
 };
 
 export async function requireStudentPortalContext() {
-  const context = await requireSessionContext();
+  let supabase: ReturnType<typeof createClient> | null = null;
+  const result = await runStudentPortalFlow({
+    requireSession: requireSessionContext,
+    redirectNonStudent(context) {
+      redirect(getDefaultAppPath(context));
+    },
+    redirectInvalidStudent() {
+      redirect("/login?error=session&reason=student_identity_link_invalid");
+    },
+    async rpc(name) {
+      supabase ??= createClient();
+      const { data, error } = await supabase.rpc(name);
 
-  if (context.effectiveRole !== "student") {
-    redirect(getDefaultAppPath(context));
-  }
+      return { data, error };
+    }
+  });
 
-  const supabase = createClient();
-  const { data: profileData, error: profileError } = await supabase.rpc(
-    "get_current_student_portal_profile"
-  );
-
-  if (profileError || profileData?.length !== 1 || !context.currentSchool) {
-    redirect("/login?error=session&reason=student_identity_link_invalid");
-  }
-
-  const { data: deviceData, error: deviceError } = await supabase.rpc(
-    "list_current_student_portal_devices"
-  );
-
-  if (deviceError) {
-    throw new Error("Could not load the student portal.");
-  }
+  const student = result.profile as StudentPortalStudent;
 
   return {
-    context,
-    school: { name: profileData[0].school_name },
-    student: profileData[0] as StudentPortalStudent,
-    devices: (deviceData ?? []) as StudentPortalDevice[]
+    context: result.context,
+    school: { name: student.school_name },
+    student,
+    devices: result.devices as StudentPortalDevice[]
   };
 }
