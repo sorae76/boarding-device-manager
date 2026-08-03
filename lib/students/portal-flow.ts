@@ -5,7 +5,8 @@ type StudentSessionContext = {
 
 type PortalRpcName =
   | "get_current_student_portal_profile"
-  | "list_current_student_portal_devices";
+  | "list_current_student_portal_devices"
+  | "list_current_student_device_registration_requests";
 
 type PortalRpcResult = {
   data: unknown;
@@ -45,9 +46,18 @@ export async function runStudentPortalFlow<TContext extends StudentSessionContex
     throw new Error("Could not load the student portal.");
   }
 
+  const { data: rawRequestData, error: requestError } = await dependencies.rpc(
+    "list_current_student_device_registration_requests"
+  );
+
+  if (requestError) {
+    throw new Error("Could not load the student portal.");
+  }
+
   return {
     context,
     profile: profileData[0],
-    devices: Array.isArray(rawDeviceData) ? rawDeviceData : []
+    devices: Array.isArray(rawDeviceData) ? rawDeviceData : [],
+    registrationRequests: Array.isArray(rawRequestData) ? rawRequestData : []
   };
 }

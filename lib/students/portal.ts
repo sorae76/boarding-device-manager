@@ -28,6 +28,20 @@ export type StudentPortalDevice = {
   custody_status: DeviceCustodyStatus;
 };
 
+export type StudentDeviceRegistrationRequest = {
+  request_id: string;
+  device_type: DeviceType;
+  manufacturer: string;
+  model: string;
+  color: string;
+  serial_number: string;
+  student_note: string | null;
+  status: "pending" | "approved" | "rejected";
+  submitted_at: string;
+  reviewed_at: string | null;
+  review_note: string | null;
+};
+
 export async function requireStudentPortalContext() {
   let supabase: ReturnType<typeof createClient> | null = null;
   const result = await runStudentPortalFlow({
@@ -52,6 +66,7 @@ export async function requireStudentPortalContext() {
     context: result.context,
     school: { name: student.school_name },
     student,
-    devices: result.devices as StudentPortalDevice[]
+    devices: result.devices as StudentPortalDevice[],
+    registrationRequests: result.registrationRequests as StudentDeviceRegistrationRequest[]
   };
 }

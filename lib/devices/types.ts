@@ -23,6 +23,20 @@ export type DeviceLifecycleTransition =
 
 export type DeviceType = "phone" | "tablet" | "laptop" | "watch" | "other";
 
+export type StaffDeviceRegistrationRequest = {
+  request_id: string;
+  student_name: string;
+  student_number: string | null;
+  residence_name: string | null;
+  device_type: DeviceType;
+  manufacturer: string;
+  model: string;
+  color: string;
+  serial_number: string;
+  submitted_at: string;
+  status: "pending";
+};
+
 export type StudentSummary = {
   id: string;
   student_number: string | null;
