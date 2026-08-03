@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { requireSessionContext } from "@/lib/auth/session";
 import type { CurrentSessionContext } from "@/lib/auth/types";
+export { canManageStudents } from "@/lib/students/management";
 
 export type StudentContext = CurrentSessionContext & {
   currentSchool: NonNullable<CurrentSessionContext["currentSchool"]>;

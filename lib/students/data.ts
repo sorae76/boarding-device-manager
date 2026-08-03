@@ -18,6 +18,12 @@ type StudentResidenceQueryRow = {
   dorms: ResidenceRelation;
   school_email?: string | null;
   auth_user_id?: string | null;
+  student_number: string | null;
+  first_name: string;
+  last_name: string;
+  grade_level: string | null;
+  status: "active" | "inactive";
+  updated_at: string;
 };
 
 function singleResidence(value: ResidenceRelation): StudentResidence | null {
@@ -32,14 +38,16 @@ export async function listStudentResidenceRows(
   const result = includeAccountData
     ? await supabase
         .from("students")
-        .select("id,dorm_id,school_email,auth_user_id,dorms(id,name,code,is_active)")
+        .select("id,dorm_id,student_number,first_name,last_name,grade_level,status,updated_at,school_email,auth_user_id,dorms(id,name,code,is_active)")
         .eq("school_id", context.currentSchool.id)
-        .eq("status", "active")
+        .in("status", ["active", "inactive"])
+        .order("last_name", { ascending: true })
     : await supabase
         .from("students")
-        .select("id,dorm_id,dorms(id,name,code,is_active)")
+        .select("id,dorm_id,student_number,first_name,last_name,grade_level,status,updated_at,dorms(id,name,code,is_active)")
         .eq("school_id", context.currentSchool.id)
-        .eq("status", "active");
+        .in("status", ["active", "inactive"])
+        .order("last_name", { ascending: true });
   const { data, error } = result;
 
   if (error) {
@@ -50,6 +58,12 @@ export async function listStudentResidenceRows(
     id: row.id,
     dorm_id: row.dorm_id,
     primaryResidence: singleResidence(row.dorms),
+    student_number: row.student_number,
+    first_name: row.first_name,
+    last_name: row.last_name,
+    grade_level: row.grade_level,
+    status: row.status,
+    updated_at: row.updated_at,
     ...(includeAccountData
       ? {
           school_email: row.school_email ?? null,
@@ -83,26 +97,24 @@ export async function getStudentManagementData(context: StudentContext) {
     listStudentResidenceRows(context),
     listActiveStudentResidenceOptions(context)
   ]);
-  const residencesByStudentId = new Map(residenceRows.map((row) => [row.id, row]));
-  const students: StudentManagementRow[] = custody.studentSummaries.map((summary) => {
-    const residence = residencesByStudentId.get(summary.student.id);
+  const custodyByStudentId = new Map(custody.studentSummaries.map((row) => [row.student.id, row]));
+  const students: StudentManagementRow[] = residenceRows.map((residence) => {
+    const summary = custodyByStudentId.get(residence.id);
 
     return {
-      ...summary.student,
-      dorm_id: residence?.dorm_id ?? null,
-      primaryResidence: residence?.primaryResidence ?? null,
+      ...residence,
       ...(canManageStudentAccountEmail(context)
         ? {
-            school_email: residence?.school_email ?? null,
-            auth_user_id: residence?.auth_user_id ?? null
+            school_email: residence.school_email ?? null,
+            auth_user_id: residence.auth_user_id ?? null
           }
         : {}),
-      totalDevices: summary.totalDevices,
-      checkedOutDevices: summary.checkedOutDevices,
-      returnedDevices: summary.returnedDevices,
-      lostDevices: summary.lostDevices,
-      inactiveDevices: summary.inactiveDevices,
-      custodyStatus: summary.status
+      totalDevices: summary?.totalDevices ?? 0,
+      checkedOutDevices: summary?.checkedOutDevices ?? 0,
+      returnedDevices: summary?.returnedDevices ?? 0,
+      lostDevices: summary?.lostDevices ?? 0,
+      inactiveDevices: summary?.inactiveDevices ?? 0,
+      custodyStatus: summary?.status ?? "no_devices"
     };
   });
 
