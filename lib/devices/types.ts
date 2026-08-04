@@ -23,6 +23,8 @@ export type DeviceLifecycleTransition =
 
 export type DeviceType = "phone" | "tablet" | "laptop" | "watch" | "other";
 
+export type DeviceRegistrationStatus = "pending" | "approved" | "rejected";
+
 export type StaffDeviceRegistrationRequest = {
   request_id: string;
   student_name: string;
@@ -35,6 +37,31 @@ export type StaffDeviceRegistrationRequest = {
   serial_number: string;
   submitted_at: string;
   status: "pending";
+};
+
+export type StaffDeviceRegistrationDetail = {
+  request_id: string;
+  school_id: string;
+  student_id: string;
+  student_name: string;
+  student_number: string | null;
+  residence_name: string | null;
+  device_type: DeviceType;
+  manufacturer: string;
+  model: string;
+  color: string;
+  serial_number: string;
+  student_note: string | null;
+  status: DeviceRegistrationStatus;
+  submitted_at: string;
+  reviewed_at: string | null;
+  review_note: string | null;
+  approved_device_id: string | null;
+};
+
+export type RegistrationReviewActionState = {
+  status: "idle" | "error";
+  message: string;
 };
 
 export type StudentSummary = {

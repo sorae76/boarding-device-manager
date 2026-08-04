@@ -21,6 +21,12 @@ const custodyLabels: Record<DeviceCustodyStatus, string> = {
   inactive: "Inactive"
 };
 
+const registrationBadgeClasses = {
+  pending: "bg-amber-50 text-amber-800",
+  approved: "bg-emerald-50 text-emerald-800",
+  rejected: "bg-red-50 text-red-800"
+} as const;
+
 export default async function StudentPortalPage() {
   const { devices, registrationRequests, school, student } = await requireStudentPortalContext();
 
@@ -99,8 +105,25 @@ export default async function StudentPortalPage() {
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {registrationRequests.map((request) => (
                 <article className="min-w-0 rounded-lg border border-neutral-200 p-4" key={request.request_id}>
-                  <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-semibold text-neutral-950">{request.manufacturer} {request.model}</p><p className="mt-1 text-sm text-neutral-600">{deviceTypeLabels[request.device_type]} · {request.color}</p></div><span className="shrink-0 rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">{request.status === "pending" ? "Pending verification" : request.status === "approved" ? "Approved" : "Rejected"}</span></div>
-                  <dl className="mt-3 space-y-1 text-sm text-neutral-600"><div><dt className="inline font-medium">Submitted: </dt><dd className="inline">{formatDateInTimeZone(request.submitted_at, school.timezone)}</dd></div><div className="min-w-0"><dt className="inline font-medium">Serial number: </dt><dd className="break-all">{request.serial_number}</dd></div></dl>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0"><p className="font-semibold text-neutral-950">{request.manufacturer} {request.model}</p><p className="mt-1 text-sm text-neutral-600">{deviceTypeLabels[request.device_type]} · {request.color}</p></div>
+                    <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${registrationBadgeClasses[request.status]}`}>
+                      {request.status === "pending" ? "Pending verification" : request.status === "approved" ? "Approved" : "Rejected"}
+                    </span>
+                  </div>
+                  <dl className="mt-3 space-y-1 text-sm text-neutral-600">
+                    <div><dt className="inline font-medium">Submitted: </dt><dd className="inline">{formatDateInTimeZone(request.submitted_at, school.timezone)}</dd></div>
+                    {request.status !== "pending" && request.reviewed_at ? (
+                      <div><dt className="inline font-medium">Reviewed: </dt><dd className="inline">{formatDateInTimeZone(request.reviewed_at, school.timezone)}</dd></div>
+                    ) : null}
+                    <div className="min-w-0"><dt className="inline font-medium">Serial number: </dt><dd className="break-all">{request.serial_number}</dd></div>
+                    {request.status !== "pending" && request.review_note ? (
+                      <div className="pt-2">
+                        <dt className="font-medium">Staff feedback</dt>
+                        <dd className="mt-1 whitespace-pre-wrap break-words">{request.review_note}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
                 </article>
               ))}
             </div>

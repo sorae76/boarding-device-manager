@@ -11,8 +11,9 @@ import type {
   DeviceRegistryFilters,
   StudentCustodyStatus,
   StudentCustodySummary,
-  StudentSummary
-  ,StaffDeviceRegistrationRequest
+  StudentSummary,
+  StaffDeviceRegistrationDetail,
+  StaffDeviceRegistrationRequest
 } from "@/lib/devices/types";
 
 export async function listPendingDeviceRegistrations(
@@ -24,6 +25,20 @@ export async function listPendingDeviceRegistrations(
   );
   if (error) throw new Error("Could not load pending device registrations.");
   return (data ?? []) as StaffDeviceRegistrationRequest[];
+}
+
+export async function getStudentDeviceRegistrationForStaff(
+  context: DeviceWorkflowContext,
+  requestId: string
+): Promise<StaffDeviceRegistrationDetail | null> {
+  const { data, error } = await createClient()
+    .rpc("get_student_device_registration_request_for_staff", {
+      target_school_id: context.currentSchool.id,
+      target_request_id: requestId
+    })
+    .maybeSingle();
+  if (error) throw new Error("Could not load the registration request.");
+  return (data as StaffDeviceRegistrationDetail | null) ?? null;
 }
 
 type StudentRelation = StudentSummary | StudentSummary[] | null;
