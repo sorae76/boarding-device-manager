@@ -6,6 +6,8 @@ import test from "node:test";
 import { studentDeviceRegistrationError, validateStudentDeviceRegistrationInput } from "../lib/students/device-registration.ts";
 // @ts-expect-error Node's native TypeScript runner requires the file extension.
 import { runStudentPortalFlow } from "../lib/students/portal-flow.ts";
+// @ts-expect-error Node's native TypeScript runner requires the file extension.
+import { formatDateInTimeZone, formatDateTimeInTimeZone } from "../lib/devices/format.ts";
 
 const validInput = {
   deviceType: "laptop",
@@ -33,6 +35,19 @@ test("student registration enforces field maximum lengths", () => {
   assert.equal(validateStudentDeviceRegistrationInput({ ...validInput, manufacturer: "x".repeat(101) }).error, "Manufacturer must be 100 characters or fewer.");
   assert.equal(validateStudentDeviceRegistrationInput({ ...validInput, serialNumber: "x".repeat(201) }).error, "Serial number must be 200 characters or fewer.");
   assert.equal(validateStudentDeviceRegistrationInput({ ...validInput, studentNote: "x".repeat(1001) }).error, "Student note must be 1000 characters or fewer.");
+});
+
+test("registration timestamps use the explicit school timezone", () => {
+  const submittedAt = "2026-08-03T22:47:00.000Z";
+  const nearMidnightUtc = "2026-08-04T02:47:00.000Z";
+
+  assert.doesNotThrow(() => formatDateInTimeZone("not-a-date", "America/New_York"));
+  assert.doesNotThrow(() => formatDateTimeInTimeZone("not-a-date", "America/New_York"));
+  assert.equal(formatDateInTimeZone("not-a-date", "America/New_York"), "Unknown");
+  assert.equal(formatDateTimeInTimeZone("not-a-date", "America/New_York"), "Unknown");
+  assert.equal(formatDateTimeInTimeZone(submittedAt, "America/New_York"), "Aug 3, 2026, 6:47 PM");
+  assert.equal(formatDateInTimeZone(nearMidnightUtc, "America/New_York"), "8/3/2026");
+  assert.equal(formatDateInTimeZone(nearMidnightUtc, "UTC"), "8/4/2026");
 });
 
 test("duplicate database details map to one safe message", () => {
@@ -104,4 +119,19 @@ test("staff registrations page has separate mobile cards and desktop table", asy
   assert.doesNotMatch(page, /min-w-\[1050px\]/);
   assert.match(page, /break-all text-neutral-900/);
   assert.doesNotMatch(page, />\s*(Approve|Reject)\s*</i);
+  assert.match(page, /formatDateTimeInTimeZone\(request\.submitted_at, schoolTimeZone\)/);
+});
+
+test("student registration form uses shared type-specific manufacturer options", async () => {
+  const form = await readFile(new URL("../app/student/devices/new/student-device-registration-form.tsx", import.meta.url), "utf8");
+  const portal = await readFile(new URL("../app/student/page.tsx", import.meta.url), "utf8");
+
+  assert.match(form, /manufacturerOptionsByDeviceType/);
+  assert.match(form, /name="manufacturer" type="hidden" value=\{manufacturer\}/);
+  assert.match(form, /manufacturerPreset === "Other"/);
+  assert.match(form, /Custom manufacturer/);
+  assert.match(form, /setManufacturerPreset\(nextOptions\[0\] \?\? "Other"\)/);
+  assert.match(form, /setCustomManufacturer\(""\)/);
+  assert.doesNotMatch(form, /name="manufacturer" required/);
+  assert.match(portal, /formatDateInTimeZone\(request\.submitted_at, school\.timezone\)/);
 });

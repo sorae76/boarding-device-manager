@@ -2,6 +2,7 @@ import Link from "next/link";
 import LogoutButton from "@/components/logout-button";
 import { requireStudentPortalContext } from "@/lib/students/portal";
 import type { DeviceCustodyStatus, DeviceType } from "@/lib/devices/types";
+import { formatDateInTimeZone } from "@/lib/devices/format";
 
 export const dynamic = "force-dynamic";
 
@@ -99,7 +100,7 @@ export default async function StudentPortalPage() {
               {registrationRequests.map((request) => (
                 <article className="min-w-0 rounded-lg border border-neutral-200 p-4" key={request.request_id}>
                   <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-semibold text-neutral-950">{request.manufacturer} {request.model}</p><p className="mt-1 text-sm text-neutral-600">{deviceTypeLabels[request.device_type]} · {request.color}</p></div><span className="shrink-0 rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">{request.status === "pending" ? "Pending verification" : request.status === "approved" ? "Approved" : "Rejected"}</span></div>
-                  <dl className="mt-3 space-y-1 text-sm text-neutral-600"><div><dt className="inline font-medium">Submitted: </dt><dd className="inline">{new Date(request.submitted_at).toLocaleDateString()}</dd></div><div className="min-w-0"><dt className="inline font-medium">Serial number: </dt><dd className="break-all">{request.serial_number}</dd></div></dl>
+                  <dl className="mt-3 space-y-1 text-sm text-neutral-600"><div><dt className="inline font-medium">Submitted: </dt><dd className="inline">{formatDateInTimeZone(request.submitted_at, school.timezone)}</dd></div><div className="min-w-0"><dt className="inline font-medium">Serial number: </dt><dd className="break-all">{request.serial_number}</dd></div></dl>
                 </article>
               ))}
             </div>

@@ -1,10 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
-import { colorOptions, deviceTypes } from "@/lib/devices/field-options";
+import {
+  colorOptions,
+  deviceTypes,
+  manufacturerOptionsByDeviceType
+} from "@/lib/devices/field-options";
 import { deviceTypeLabels } from "@/lib/devices/format";
+import type { DeviceType } from "@/lib/devices/types";
 import {
   submitStudentDeviceRegistrationAction,
   type StudentDeviceRegistrationState
@@ -20,7 +26,26 @@ function SubmitButton() {
 
 export default function StudentDeviceRegistrationForm() {
   const [state, action] = useFormState(submitStudentDeviceRegistrationAction, initialState);
+  const [selectedDeviceType, setSelectedDeviceType] = useState<DeviceType>("phone");
+  const [manufacturerPreset, setManufacturerPreset] = useState(
+    manufacturerOptionsByDeviceType.phone[0]
+  );
+  const [customManufacturer, setCustomManufacturer] = useState("");
   const fieldClass = "min-h-11 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-base sm:text-sm";
+  const manufacturerOptions = manufacturerOptionsByDeviceType[selectedDeviceType];
+  const manufacturer =
+    manufacturerPreset === "Other" ? customManufacturer.trim() : manufacturerPreset;
+
+  function handleDeviceTypeChange(value: string) {
+    const nextDeviceType = value as DeviceType;
+    const nextOptions = manufacturerOptionsByDeviceType[nextDeviceType];
+
+    setSelectedDeviceType(nextDeviceType);
+    if (!nextOptions.includes(manufacturerPreset)) {
+      setManufacturerPreset(nextOptions[0] ?? "Other");
+      setCustomManufacturer("");
+    }
+  }
 
   if (state.status === "success") {
     return <div className="space-y-4"><p className="rounded-md bg-green-50 p-4 text-sm text-green-800">{state.message}</p><Link className="inline-flex min-h-11 items-center rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white" href="/student">Return to my devices</Link></div>;
@@ -28,9 +53,23 @@ export default function StudentDeviceRegistrationForm() {
 
   return (
     <form action={action} className="space-y-5">
+      <input name="manufacturer" type="hidden" value={manufacturer} />
       <div className="grid grid-cols-1 gap-4">
-        <label className="space-y-1 text-sm"><span className="font-medium text-neutral-700">Device type</span><select className={fieldClass} name="deviceType" required>{deviceTypes.map((type) => <option key={type} value={type}>{deviceTypeLabels[type]}</option>)}</select></label>
-        <label className="space-y-1 text-sm"><span className="font-medium text-neutral-700">Manufacturer</span><input className={fieldClass} maxLength={studentRegistrationLimits.manufacturer} name="manufacturer" required /></label>
+        <label className="space-y-1 text-sm"><span className="font-medium text-neutral-700">Device type</span><select className={fieldClass} name="deviceType" onChange={(event) => handleDeviceTypeChange(event.target.value)} required value={selectedDeviceType}>{deviceTypes.map((type) => <option key={type} value={type}>{deviceTypeLabels[type]}</option>)}</select></label>
+        <div className="space-y-2 text-sm">
+          <label className="block space-y-1">
+            <span className="font-medium text-neutral-700">Manufacturer</span>
+            <select className={fieldClass} onChange={(event) => setManufacturerPreset(event.target.value)} value={manufacturerPreset}>
+              {manufacturerOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+            </select>
+          </label>
+          {manufacturerPreset === "Other" ? (
+            <label className="block space-y-1">
+              <span className="font-medium text-neutral-700">Custom manufacturer</span>
+              <input className={fieldClass} maxLength={studentRegistrationLimits.manufacturer} onChange={(event) => setCustomManufacturer(event.target.value)} required value={customManufacturer} />
+            </label>
+          ) : null}
+        </div>
         <label className="space-y-1 text-sm"><span className="font-medium text-neutral-700">Model</span><input className={fieldClass} maxLength={studentRegistrationLimits.model} name="model" required /></label>
         <label className="space-y-1 text-sm"><span className="font-medium text-neutral-700">Color</span><input className={fieldClass} list="student-device-colors" maxLength={studentRegistrationLimits.color} name="color" required /><datalist id="student-device-colors">{colorOptions.map((color) => <option key={color} value={color} />)}</datalist></label>
         <label className="space-y-1 text-sm"><span className="font-medium text-neutral-700">Serial number</span><input className={fieldClass} maxLength={studentRegistrationLimits.serialNumber} name="serialNumber" required /><span className="block text-xs text-neutral-500">Enter the serial number exactly as shown on the device.</span></label>

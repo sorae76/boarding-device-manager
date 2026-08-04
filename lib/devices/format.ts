@@ -65,6 +65,38 @@ export function formatDateTime(value: string | null) {
   }).format(new Date(value));
 }
 
+export function formatDateTimeInTimeZone(value: string | null, timeZone: string) {
+  if (!value) {
+    return "Not set";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone
+  }).format(date);
+}
+
+export function formatDateInTimeZone(value: string | null, timeZone: string) {
+  if (!value) {
+    return "Not set";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown";
+  }
+
+  return new Intl.DateTimeFormat("en-US", { timeZone }).format(date);
+}
+
 export function formatForDateTimeInput(value: string | null) {
   if (!value) {
     return "";

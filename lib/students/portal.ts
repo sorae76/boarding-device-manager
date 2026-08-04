@@ -61,10 +61,18 @@ export async function requireStudentPortalContext() {
   });
 
   const student = result.profile as StudentPortalStudent;
+  const schoolTimeZone = result.context.currentSchool?.timezone;
+
+  if (!schoolTimeZone) {
+    redirect("/login?error=session&reason=student_identity_link_invalid");
+  }
 
   return {
     context: result.context,
-    school: { name: student.school_name },
+    school: {
+      name: student.school_name,
+      timezone: schoolTimeZone
+    },
     student,
     devices: result.devices as StudentPortalDevice[],
     registrationRequests: result.registrationRequests as StudentDeviceRegistrationRequest[]

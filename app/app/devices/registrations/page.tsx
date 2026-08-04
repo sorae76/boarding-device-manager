@@ -1,12 +1,13 @@
 import { requireDeviceWorkflowContext } from "@/lib/devices/access";
 import { listPendingDeviceRegistrations } from "@/lib/devices/data";
-import { deviceTypeLabels, formatDateTime } from "@/lib/devices/format";
+import { deviceTypeLabels, formatDateTimeInTimeZone } from "@/lib/devices/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function PendingDeviceRegistrationsPage() {
   const context = await requireDeviceWorkflowContext();
   const requests = await listPendingDeviceRegistrations(context);
+  const schoolTimeZone = context.currentSchool.timezone;
   return (
     <div className="min-w-0 space-y-5">
       <div>
@@ -58,7 +59,9 @@ export default async function PendingDeviceRegistrationsPage() {
               </div>
               <div>
                 <dt className="font-medium text-neutral-500">Submitted</dt>
-                <dd className="mt-1 text-neutral-900">{formatDateTime(request.submitted_at)}</dd>
+                <dd className="mt-1 text-neutral-900">
+                  {formatDateTimeInTimeZone(request.submitted_at, schoolTimeZone)}
+                </dd>
               </div>
             </dl>
           </article>
@@ -103,7 +106,7 @@ export default async function PendingDeviceRegistrationsPage() {
                 <td className="break-words px-3 py-3 align-top text-neutral-700">{request.color}</td>
                 <td className="break-all px-3 py-3 align-top text-neutral-700">{request.serial_number}</td>
                 <td className="px-3 py-3 align-top text-neutral-700">
-                  {formatDateTime(request.submitted_at)}
+                  {formatDateTimeInTimeZone(request.submitted_at, schoolTimeZone)}
                 </td>
                 <td className="px-3 py-3 align-top">
                   <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
