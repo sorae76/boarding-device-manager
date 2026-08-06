@@ -1,4 +1,4 @@
-import type { StudentCustodyStatus } from "@/lib/devices/types";
+import type { StudentManagementCustodyStatus } from "@/lib/students/custody-status";
 
 export type StudentResidence = {
   id: string;
@@ -27,7 +27,7 @@ export type StudentManagementRow = StudentResidenceRow & {
   returnedDevices: number;
   lostDevices: number;
   inactiveDevices: number;
-  custodyStatus: StudentCustodyStatus;
+  custodyStatus: StudentManagementCustodyStatus;
   school_email?: string | null;
   auth_user_id?: string | null;
 };

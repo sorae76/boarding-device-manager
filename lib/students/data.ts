@@ -4,6 +4,7 @@ import {
   canManageStudentAccountEmail,
   type StudentContext
 } from "@/lib/students/access";
+import { studentManagementCustodyStatus } from "@/lib/students/custody-status";
 import type {
   StudentManagementRow,
   StudentResidence,
@@ -100,6 +101,13 @@ export async function getStudentManagementData(context: StudentContext) {
   const custodyByStudentId = new Map(custody.studentSummaries.map((row) => [row.student.id, row]));
   const students: StudentManagementRow[] = residenceRows.map((residence) => {
     const summary = custodyByStudentId.get(residence.id);
+    const deviceCounts = {
+      totalDevices: summary?.totalDevices ?? 0,
+      checkedOutDevices: summary?.checkedOutDevices ?? 0,
+      returnedDevices: summary?.returnedDevices ?? 0,
+      lostDevices: summary?.lostDevices ?? 0,
+      inactiveDevices: summary?.inactiveDevices ?? 0
+    };
 
     return {
       ...residence,
@@ -109,12 +117,8 @@ export async function getStudentManagementData(context: StudentContext) {
             auth_user_id: residence.auth_user_id ?? null
           }
         : {}),
-      totalDevices: summary?.totalDevices ?? 0,
-      checkedOutDevices: summary?.checkedOutDevices ?? 0,
-      returnedDevices: summary?.returnedDevices ?? 0,
-      lostDevices: summary?.lostDevices ?? 0,
-      inactiveDevices: summary?.inactiveDevices ?? 0,
-      custodyStatus: summary?.status ?? "no_devices"
+      ...deviceCounts,
+      custodyStatus: studentManagementCustodyStatus(deviceCounts)
     };
   });
 

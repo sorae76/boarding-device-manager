@@ -10,20 +10,27 @@ import {
   saveStudentAction
 } from "@/lib/students/actions";
 import { nextNewStudentEditorVersion, studentEditorVersion } from "@/lib/students/management";
-import type { StudentCustodyStatus } from "@/lib/devices/types";
+import type { StudentManagementCustodyStatus } from "@/lib/students/custody-status";
 import type { StudentActionState, StudentManagementRow, StudentResidence } from "@/lib/students/types";
 
 const initialState: StudentActionState = { status: "idle", message: "" };
 
-const statusLabels: Record<StudentCustodyStatus, string> = {
-  complete: "Complete", pending: "Pending", missing: "Missing", no_devices: "No devices"
+const statusLabels: Record<StudentManagementCustodyStatus, string> = {
+  no_devices: "No devices",
+  missing: "Missing",
+  mixed_custody: "Mixed custody",
+  with_student: "With student",
+  checked_in: "Checked in",
+  inactive: "Inactive"
 };
 
-const statusStyles: Record<StudentCustodyStatus, string> = {
-  complete: "bg-emerald-50 text-emerald-700",
-  pending: "bg-amber-50 text-amber-700",
+const statusStyles: Record<StudentManagementCustodyStatus, string> = {
+  no_devices: "bg-neutral-100 text-neutral-700",
   missing: "bg-rose-50 text-rose-700",
-  no_devices: "bg-neutral-100 text-neutral-700"
+  mixed_custody: "bg-amber-50 text-amber-800",
+  with_student: "bg-blue-50 text-blue-700",
+  checked_in: "bg-emerald-50 text-emerald-700",
+  inactive: "bg-neutral-100 text-neutral-700"
 };
 
 function SaveButton() {
