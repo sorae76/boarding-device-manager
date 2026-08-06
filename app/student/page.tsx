@@ -3,6 +3,7 @@ import LogoutButton from "@/components/logout-button";
 import { requireStudentPortalContext } from "@/lib/students/portal";
 import type { DeviceCustodyStatus, DeviceType } from "@/lib/devices/types";
 import { formatDateInTimeZone } from "@/lib/devices/format";
+import { issueStatusBadgeClasses, issueStatusLabels, issueTypeLabels } from "@/lib/devices/issue-review";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ const registrationBadgeClasses = {
 } as const;
 
 export default async function StudentPortalPage() {
-  const { devices, registrationRequests, school, student } = await requireStudentPortalContext();
+  const { devices, registrationRequests, issueRequests, school, student } = await requireStudentPortalContext();
 
   return (
     <main className="min-h-screen bg-[#f7f7f8] px-4 py-6 sm:py-10">
@@ -86,6 +87,9 @@ export default async function StudentPortalPage() {
                       </div>
                     ) : null}
                   </dl>
+                  {["checked_out", "returned"].includes(device.custody_status) ? (
+                    <Link className="mt-4 inline-flex min-h-11 items-center font-semibold text-brand" href={`/student/devices/${device.device_id}/issues/new`}>Report an issue</Link>
+                  ) : null}
                 </article>
               ))}
             </div>
@@ -94,6 +98,16 @@ export default async function StudentPortalPage() {
               No devices are registered to your account.
             </p>
           )}
+        </section>
+
+        <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <div><h2 className="text-lg font-semibold text-neutral-950">Device issue requests</h2><p className="mt-1 text-sm text-neutral-600">Lost, damaged, and disposal requests submitted for staff review.</p></div>
+          {issueRequests.length ? <div className="mt-4 grid gap-3 sm:grid-cols-2">{issueRequests.map((request) => (
+            <article className="rounded-lg border border-neutral-200 p-4" key={request.request_id}>
+              <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{request.manufacturer} {request.model}</p><p className="mt-1 text-sm text-neutral-600">{issueTypeLabels[request.request_type]}</p></div><span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${issueStatusBadgeClasses[request.status]}`}>{issueStatusLabels[request.status]}</span></div>
+              <dl className="mt-3 space-y-2 text-sm text-neutral-600"><div><dt className="inline font-medium">Device: </dt><dd className="inline">{deviceTypeLabels[request.device_type]} / {request.color}</dd></div><div><dt className="font-medium">Student reason</dt><dd className="mt-1 whitespace-pre-wrap break-words">{request.student_reason}</dd></div><div><dt className="inline font-medium">Submitted: </dt><dd className="inline">{formatDateInTimeZone(request.submitted_at, school.timezone)}</dd></div>{request.reviewed_at ? <div><dt className="inline font-medium">Reviewed: </dt><dd className="inline">{formatDateInTimeZone(request.reviewed_at, school.timezone)}</dd></div> : null}{request.review_note ? <div><dt className="font-medium">Staff feedback</dt><dd className="mt-1 whitespace-pre-wrap break-words">{request.review_note}</dd></div> : null}{request.resolution ? <div><dt className="inline font-medium">Resolution: </dt><dd className="inline">{request.resolution.replaceAll("_", " ")}</dd></div> : null}</dl>
+            </article>
+          ))}</div> : <p className="mt-4 text-sm text-neutral-600">You have no device issue requests.</p>}
         </section>
 
         <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">

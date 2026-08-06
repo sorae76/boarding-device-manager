@@ -24,6 +24,19 @@ export type DeviceLifecycleTransition =
 export type DeviceType = "phone" | "tablet" | "laptop" | "watch" | "other";
 
 export type DeviceRegistrationStatus = "pending" | "approved" | "rejected";
+export type DeviceIssueStatus = "pending" | "approved" | "rejected";
+export type DeviceIssueType = "lost" | "broken" | "disposal";
+export type DeviceIssueResolution = "lost_marked_missing" | "broken_exception" | "disposal_inactivated";
+export type StaffDeviceIssueRequest = {
+  request_id: string; student_id: string; student_name: string; student_number: string | null;
+  residence_name: string | null; device_id: string; device_type: DeviceType;
+  manufacturer: string; model: string; color: string; serial_number: string | null;
+  asset_tag: string | null; current_custody_status: DeviceCustodyStatus;
+  device_status_at_submission: DeviceCustodyStatus; request_type: DeviceIssueType;
+  student_reason: string; status: DeviceIssueStatus; submitted_at: string;
+  reviewed_at: string | null; review_note: string | null; resolution: DeviceIssueResolution | null;
+};
+export type DeviceIssueReviewActionState = { status: "idle" | "error"; message: string };
 
 export type StaffDeviceRegistrationRequest = {
   request_id: string;

@@ -1,0 +1,65 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+// @ts-expect-error Node's native TypeScript runner requires the file extension.
+import { studentDeviceIssueError, validateStudentDeviceIssueInput } from "../lib/students/device-issue.ts";
+// @ts-expect-error Node's native TypeScript runner requires the file extension.
+import { deviceIssueReviewError, issueApprovalNoteRequired, normalizeIssueReviewNote } from "../lib/devices/issue-review.ts";
+const read = (path: string) => readFile(new URL(path, import.meta.url), "utf8");
+const id = "550e8400-e29b-41d4-a716-446655440000";
+
+test("student issue input is trimmed, validated, and safely mapped", () => {
+  assert.deepEqual(validateStudentDeviceIssueInput({ deviceId: id, requestType: " broken ", studentReason: " cracked screen " }).input, { deviceId: id, requestType: "broken", studentReason: "cracked screen" });
+  assert.equal(validateStudentDeviceIssueInput({ deviceId: id, requestType: "other", studentReason: "x" }).error, "Choose a valid request type.");
+  assert.equal(validateStudentDeviceIssueInput({ deviceId: id, requestType: "lost", studentReason: " " }).error, "A reason is required.");
+  assert.equal(validateStudentDeviceIssueInput({ deviceId: id, requestType: "lost", studentReason: "x".repeat(1001) }).error, "Reason must be 1000 characters or fewer.");
+  assert.equal(studentDeviceIssueError("constraint secret SQL"), "The device issue request could not be submitted.");
+});
+
+test("student route verifies an own eligible portal device and exposes no authority fields", async () => {
+  const page = await read("../app/student/devices/[deviceId]/issues/new/page.tsx");
+  const form = await read("../app/student/devices/[deviceId]/issues/new/student-device-issue-form.tsx");
+  const action = await read("../lib/students/device-issue-actions.ts");
+  assert.match(page, /portal\.devices\.find/); assert.match(page, /\["checked_out", "returned"\]/); assert.match(page, /notFound\(\)/);
+  assert.match(page, /does not immediately change the device custody or lifecycle status/);
+  for (const field of ["schoolId", "studentId", "submittedByUserId"]) assert.equal(form.includes(field) || action.includes(`formData.get("${field}")`), false);
+  assert.match(action, /submit_current_student_device_issue/); assert.match(action, /revalidatePath\("\/student"\)/);
+  assert.match(form, /Report lost/); assert.match(form, /Report broken \/ damaged/); assert.match(form, /Request disposal \/ removal/);
+});
+
+test("student portal displays issue statuses, dates, feedback, and eligible actions", async () => {
+  const flow = await read("../lib/students/portal-flow.ts"); const portal = await read("../app/student/page.tsx"); const types = await read("../lib/students/portal.ts"); const labels = await read("../lib/devices/issue-review.ts");
+  assert.match(flow, /list_current_student_device_issue_requests/); assert.match(flow, /issueRequests/);
+  assert.match(portal, /Device issue requests/); assert.match(labels, /pending: "Pending review"/); assert.match(labels, /approved: "Approved"/); assert.match(labels, /rejected: "Rejected"/); assert.match(portal, /reviewed_at/); assert.match(portal, /Staff feedback/); assert.match(portal, /Report an issue/);
+  assert.doesNotMatch(types, /qr_token|reviewed_by_user_id|submitted_by_user_id|applied_event_id/);
+});
+
+test("staff issue helpers use only scoped RPCs and queue supports all statuses", async () => {
+  const data = await read("../lib/devices/data.ts"); const queue = await read("../app/app/devices/issues/page.tsx"); const detail = await read("../app/app/devices/issues/[requestId]/page.tsx");
+  const issueHelpers = data.slice(data.indexOf("export async function listStudentDeviceIssuesForStaff"), data.indexOf("export async function listPendingDeviceRegistrations"));
+  assert.match(issueHelpers, /list_student_device_issue_requests_for_staff/); assert.match(issueHelpers, /get_student_device_issue_request_for_staff/);
+  assert.doesNotMatch(issueHelpers, /\.from\("(?:students|dorms|device_custody_devices|student_device_issue_requests)"\)/);
+  assert.match(queue, /\["pending", "approved", "rejected"\]/); assert.match(queue, /data-mobile-issue-cards/); assert.match(queue, /data-desktop-issue-table/);
+  for (const value of ["student_name", "residence_name", "current_custody_status", "device_status_at_submission", "student_reason", "reviewed_at"]) assert.ok(queue.includes(value) || detail.includes(value));
+  assert.match(detail, /Processed request detail/); assert.match(detail, /Disposal approval is restricted/);
+  assert.doesNotMatch(queue + detail, /qr_token/);
+});
+
+test("review actions trust only request id and note and map errors safely", async () => {
+  const actions = await read("../lib/devices/issue-review-actions.ts"); const forms = await read("../app/app/devices/issues/[requestId]/review-forms.tsx");
+  for (const field of ["schoolId", "studentId", "deviceId", "reviewerId", "requestType", "noteRequired"]) assert.equal(actions.includes(`formData.get("${field}")`), false);
+  assert.match(actions, /context\.currentSchool\.id/); assert.match(actions, /approve_student_device_issue_request/); assert.match(actions, /reject_student_device_issue_request/);
+  assert.equal(issueApprovalNoteRequired("lost"), false); assert.equal(issueApprovalNoteRequired("broken"), true); assert.equal(issueApprovalNoteRequired("disposal"), true);
+  assert.equal(normalizeIssueReviewNote(" ", true).error, "A review note is required.");
+  assert.equal(deviceIssueReviewError("device_issue_disposal_requires_returned private"), "The device must be returned before disposal can be approved.");
+  assert.equal(deviceIssueReviewError("raw SQL secret"), "The device issue request could not be processed.");
+  assert.match(forms, /requestType !== "lost"/); assert.match(forms, /Reason for rejection \(required\)/);
+});
+
+test("device registry keeps registration and issue queues separate", async () => {
+  const page = await read("../app/app/devices/page.tsx"); const access = await read("../lib/devices/access.ts");
+  assert.match(page, /Pending registrations \(\{pendingRegistrations\.length\}\)/); assert.match(page, /Pending issue requests \(\{pendingIssues\.length\}\)/);
+  assert.match(page, /listStudentDeviceIssuesForStaff\(context, "pending"\)/);
+  const workflowGate = access.slice(access.indexOf("export function canAccessDeviceWorkflows"), access.indexOf("export function canAccessDeviceDashboard"));
+  assert.doesNotMatch(workflowGate, /dorm_supervisor/);
+});

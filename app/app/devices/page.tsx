@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { requireDeviceWorkflowContext } from "@/lib/devices/access";
-import { listDevices, listPendingDeviceRegistrations } from "@/lib/devices/data";
+import { listDevices, listPendingDeviceRegistrations, listStudentDeviceIssuesForStaff } from "@/lib/devices/data";
 import {
   deviceName,
   deviceTypeLabels,
@@ -69,8 +69,8 @@ export default async function DeviceRegistryPage({ searchParams }: DeviceRegistr
   const context = await requireDeviceWorkflowContext();
   const filters = getFilters(searchParams);
   const activeFilterLabel = getFilterLabel(filters);
-  const [devices, pendingRegistrations] = await Promise.all([
-    listDevices(context, filters), listPendingDeviceRegistrations(context)
+  const [devices, pendingRegistrations, pendingIssues] = await Promise.all([
+    listDevices(context, filters), listPendingDeviceRegistrations(context), listStudentDeviceIssuesForStaff(context, "pending")
   ]);
 
   return (
@@ -95,6 +95,7 @@ export default async function DeviceRegistryPage({ searchParams }: DeviceRegistr
         </div>
         <div className="flex flex-wrap gap-2">
           <Link className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-center text-sm font-semibold text-amber-900 hover:bg-amber-100" href="/app/devices/registrations">Pending registrations ({pendingRegistrations.length})</Link>
+          <Link className="rounded-md border border-orange-300 bg-orange-50 px-4 py-2 text-center text-sm font-semibold text-orange-900 hover:bg-orange-100" href="/app/devices/issues">Pending issue requests ({pendingIssues.length})</Link>
           <Link
             className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-center text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
             href="/app/devices/template"

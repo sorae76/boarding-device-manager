@@ -14,7 +14,20 @@ import type {
   StudentSummary,
   StaffDeviceRegistrationDetail,
   StaffDeviceRegistrationRequest
+  , StaffDeviceIssueRequest, DeviceIssueStatus
 } from "@/lib/devices/types";
+
+export async function listStudentDeviceIssuesForStaff(context: DeviceWorkflowContext, status: DeviceIssueStatus = "pending"): Promise<StaffDeviceIssueRequest[]> {
+  const { data, error } = await createClient().rpc("list_student_device_issue_requests_for_staff", { target_school_id: context.currentSchool.id, target_status: status });
+  if (error) throw new Error("Could not load device issue requests.");
+  return (data ?? []) as StaffDeviceIssueRequest[];
+}
+
+export async function getStudentDeviceIssueForStaff(context: DeviceWorkflowContext, requestId: string): Promise<StaffDeviceIssueRequest | null> {
+  const { data, error } = await createClient().rpc("get_student_device_issue_request_for_staff", { target_school_id: context.currentSchool.id, target_request_id: requestId }).maybeSingle();
+  if (error) throw new Error("Could not load the device issue request.");
+  return (data as StaffDeviceIssueRequest | null) ?? null;
+}
 
 export async function listPendingDeviceRegistrations(
   context: DeviceWorkflowContext

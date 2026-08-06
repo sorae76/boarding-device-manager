@@ -5,6 +5,7 @@ import { requireSessionContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { runStudentPortalFlow } from "@/lib/students/portal-flow";
 import type { DeviceCustodyStatus, DeviceType } from "@/lib/devices/types";
+import type { StudentDeviceIssueResolution, StudentDeviceIssueStatus, StudentDeviceIssueType } from "@/lib/students/device-issue";
 
 export type StudentPortalStudent = {
   student_id: string;
@@ -42,6 +43,16 @@ export type StudentDeviceRegistrationRequest = {
   review_note: string | null;
 };
 
+export type StudentDeviceIssueRequest = {
+  request_id: string; device_id: string; device_type: DeviceType;
+  manufacturer: string; model: string; color: string;
+  serial_number: string | null; asset_tag: string | null;
+  request_type: StudentDeviceIssueType; student_reason: string;
+  status: StudentDeviceIssueStatus; submitted_at: string;
+  reviewed_at: string | null; review_note: string | null;
+  resolution: StudentDeviceIssueResolution | null;
+};
+
 export async function requireStudentPortalContext() {
   let supabase: ReturnType<typeof createClient> | null = null;
   const result = await runStudentPortalFlow({
@@ -75,6 +86,7 @@ export async function requireStudentPortalContext() {
     },
     student,
     devices: result.devices as StudentPortalDevice[],
-    registrationRequests: result.registrationRequests as StudentDeviceRegistrationRequest[]
+    registrationRequests: result.registrationRequests as StudentDeviceRegistrationRequest[],
+    issueRequests: result.issueRequests as StudentDeviceIssueRequest[]
   };
 }

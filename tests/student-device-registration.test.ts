@@ -67,12 +67,14 @@ test("student portal flow loads verified devices and registration requests separ
       calls.push(name);
       if (name === "get_current_student_portal_profile") return { data: [{ student_id: "student" }], error: null };
       if (name === "list_current_student_portal_devices") return { data: [{ device_id: "verified" }], error: null };
-      return { data: [{ request_id: "pending" }], error: null };
+      if (name === "list_current_student_device_registration_requests") return { data: [{ request_id: "pending" }], error: null };
+      return { data: [{ request_id: "issue" }], error: null };
     }
   });
-  assert.deepEqual(calls, ["get_current_student_portal_profile", "list_current_student_portal_devices", "list_current_student_device_registration_requests"]);
+  assert.deepEqual(calls, ["get_current_student_portal_profile", "list_current_student_portal_devices", "list_current_student_device_registration_requests", "list_current_student_device_issue_requests"]);
   assert.deepEqual(result.devices, [{ device_id: "verified" }]);
   assert.deepEqual(result.registrationRequests, [{ request_id: "pending" }]);
+  assert.deepEqual(result.issueRequests, [{ request_id: "issue" }]);
 });
 
 test("student form and action expose no client ownership fields", async () => {
