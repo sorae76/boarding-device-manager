@@ -106,25 +106,25 @@ function LifecycleActionForm({
   device: CustodyDevice;
 }) {
   return (
-    <form action={transitionDeviceLifecycleAction} className="space-y-3 rounded-md border border-neutral-200 p-4">
+    <form action={transitionDeviceLifecycleAction} className="flex h-full flex-col rounded-md border border-neutral-200 p-4">
       <input name="deviceId" type="hidden" value={device.id} />
       <input name="transition" type="hidden" value={action.transition} />
-      <div>
+      <div className="min-h-20">
         <p className="text-sm font-semibold text-neutral-950">{action.submitLabel}</p>
         <p className="mt-1 text-sm leading-5 text-neutral-600">{action.description}</p>
       </div>
-      <label className="block space-y-1 text-sm">
+      <label className="mt-3 block space-y-1 text-sm">
         <span className="font-medium text-neutral-700">
           Notes{action.noteRequired ? " (required)" : " (optional)"}
         </span>
         <textarea
-          className="min-h-20 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
+          className="h-24 w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-sm"
           name="notes"
           required={action.noteRequired}
         />
       </label>
       <button
-        className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark"
+        className="mt-auto rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark"
         type="submit"
       >
         {action.submitLabel}
@@ -166,25 +166,25 @@ export default async function DeviceDetailPage({ params }: DeviceDetailPageProps
           >
             Edit
           </Link>
-          <Link
+          {device.status !== "inactive" ? <Link
             className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark"
             href={`/app/returns?lookup=${device.qr_token}`}
           >
             Return
-          </Link>
-          <Link
+          </Link> : null}
+          {device.status !== "inactive" ? <Link
             className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-100"
             href={`/device-pass/${device.qr_token}`}
           >
             Pass
-          </Link>
+          </Link> : null}
         </div>
       </div>
 
       <section className="grid gap-4 md:grid-cols-4">
         <div className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase text-neutral-500">Status</p>
-          <p className="mt-2 text-lg font-semibold text-neutral-950">{statusLabels[device.status]}</p>
+          <p className="mt-2"><span className="inline-flex shrink-0 whitespace-nowrap rounded-full bg-neutral-100 px-3 py-1 text-sm font-semibold text-neutral-950">{statusLabels[device.status]}</span></p>
         </div>
         <div className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase text-neutral-500">Student</p>
@@ -237,7 +237,7 @@ export default async function DeviceDetailPage({ params }: DeviceDetailPageProps
               custody events and use the existing device status workflow.
             </p>
           </div>
-          <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-700">
+          <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-full bg-neutral-100 px-3 text-xs font-semibold text-neutral-700">
             {statusLabels[device.status]}
           </span>
         </div>

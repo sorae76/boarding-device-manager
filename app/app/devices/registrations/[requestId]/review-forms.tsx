@@ -47,19 +47,17 @@ export function ApprovalForm({ requestId }: { requestId: string }) {
   );
 
   return (
-    <form action={action} className="space-y-3 rounded-lg border border-neutral-200 p-4">
+    <form action={action} className="flex h-full flex-col rounded-lg border border-neutral-200 p-4">
       <input name="requestId" type="hidden" value={requestId} />
-      <label className="block text-sm font-medium" htmlFor="approval-note">
-        Approval note (optional)
-      </label>
+      <div className="min-h-7"><label className="block text-sm font-medium" htmlFor="approval-note">Approval note (optional)</label></div>
       <textarea
-        className="min-h-24 w-full rounded-md border border-neutral-300 p-3 text-sm"
+        className="mt-3 h-28 w-full resize-y rounded-md border border-neutral-300 p-3 text-sm"
         id="approval-note"
         maxLength={1000}
         name="reviewNote"
       />
       <ErrorMessage state={state} />
-      <SubmitButton tone="approve">Approve and create device</SubmitButton>
+      <div className="mt-auto pt-3"><SubmitButton tone="approve">Approve and create device</SubmitButton></div>
     </form>
   );
 }
@@ -71,20 +69,18 @@ export function RejectionForm({ requestId }: { requestId: string }) {
   );
 
   return (
-    <form action={action} className="space-y-3 rounded-lg border border-red-200 p-4">
+    <form action={action} className="flex h-full flex-col rounded-lg border border-red-200 p-4">
       <input name="requestId" type="hidden" value={requestId} />
-      <label className="block text-sm font-medium" htmlFor="rejection-note">
-        Reason for rejection
-      </label>
+      <div className="min-h-7"><label className="block text-sm font-medium" htmlFor="rejection-note">Reason for rejection</label></div>
       <textarea
-        className="min-h-24 w-full rounded-md border border-neutral-300 p-3 text-sm"
+        className="mt-3 h-28 w-full resize-y rounded-md border border-neutral-300 p-3 text-sm"
         id="rejection-note"
         maxLength={1000}
         name="reviewNote"
         required
       />
       <ErrorMessage state={state} />
-      <SubmitButton tone="reject">Reject registration</SubmitButton>
+      <div className="mt-auto pt-3"><SubmitButton tone="reject">Reject registration</SubmitButton></div>
     </form>
   );
 }

@@ -27,11 +27,37 @@ test("student route verifies an own eligible portal device and exposes no author
   assert.match(form, /Report lost/); assert.match(form, /Report broken \/ damaged/); assert.match(form, /Request disposal \/ removal/);
 });
 
-test("student portal displays issue statuses, dates, feedback, and eligible actions", async () => {
+test("student portal separates pending requests from collapsed history and keeps eligible actions", async () => {
   const flow = await read("../lib/students/portal-flow.ts"); const portal = await read("../app/student/page.tsx"); const types = await read("../lib/students/portal.ts"); const labels = await read("../lib/devices/issue-review.ts");
   assert.match(flow, /list_current_student_device_issue_requests/); assert.match(flow, /issueRequests/);
-  assert.match(portal, /Device issue requests/); assert.match(labels, /pending: "Pending review"/); assert.match(labels, /approved: "Approved"/); assert.match(labels, /rejected: "Rejected"/); assert.match(portal, /reviewed_at/); assert.match(portal, /Staff feedback/); assert.match(portal, /Report an issue/);
+  assert.match(portal, /Open requests/); assert.match(portal, /status === "pending"/); assert.match(portal, /<details/); assert.match(portal, /View request history/); assert.match(labels, /pending: "Pending review"/); assert.match(labels, /approved: "Approved"/); assert.match(labels, /rejected: "Rejected"/); assert.match(portal, /Staff feedback/); assert.match(portal, /Report an issue/);
   assert.doesNotMatch(types, /qr_token|reviewed_by_user_id|submitted_by_user_id|applied_event_id/);
+});
+
+test("UI cleanup keeps defaults, badges, pending issue choices, and aligned cards", async () => {
+  const form = await read("../app/app/devices/device-form.tsx");
+  const portal = await read("../app/student/page.tsx");
+  const issuePage = await read("../app/student/devices/[deviceId]/issues/new/page.tsx");
+  const issueForm = await read("../app/student/devices/[deviceId]/issues/new/student-device-issue-form.tsx");
+  const queue = await read("../app/app/devices/issues/page.tsx");
+  const detail = await read("../app/app/devices/[deviceId]/page.tsx");
+  const issueReview = await read("../app/app/devices/issues/[requestId]/review-forms.tsx");
+  const registrationReview = await read("../app/app/devices/registrations/[requestId]/review-forms.tsx");
+  const format = await read("../lib/devices/format.ts");
+
+  assert.match(form, /device\?\.color \?\? "Black"/);
+  assert.match(form, /name="color" required type="hidden"/);
+  assert.match(portal, /shrink-0 items-center whitespace-nowrap rounded-full/);
+  assert.match(issuePage, /request\.device_id === device\.device_id && request\.status === "pending"/);
+  assert.match(issueForm, /This device already has a pending issue request/);
+  assert.match(issueForm, /disabled=\{pendingTypes\.has\("lost"\)\}/);
+  assert.match(issueForm, /All issue types are already pending/);
+  assert.match(queue, /<colgroup>/); assert.match(queue, /submittedParts/); assert.match(queue, /whitespace-nowrap font-semibold text-brand/);
+  assert.match(format, /inactive: "Inactive \/ Unavailable"/);
+  assert.match(detail, /device\.status !== "inactive" \? <Link/);
+  assert.match(detail, /flex h-full flex-col/); assert.match(detail, /mt-auto rounded-md/);
+  assert.match(issueReview, /flex h-full flex-col/); assert.match(issueReview, /mt-auto pt-3/);
+  assert.match(registrationReview, /flex h-full flex-col/); assert.match(registrationReview, /mt-auto pt-3/);
 });
 
 test("staff issue helpers use only scoped RPCs and queue supports all statuses", async () => {

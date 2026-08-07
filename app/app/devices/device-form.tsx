@@ -60,7 +60,7 @@ export default function DeviceForm({
   const [selectedDeviceType, setSelectedDeviceType] = useState<DeviceType>(initialDeviceType);
   const manufacturerOptions = manufacturerOptionsByDeviceType[selectedDeviceType];
   const initialManufacturer = customOrPreset(device?.manufacturer, manufacturerOptions);
-  const initialColor = customOrPreset(device?.color, colorOptions);
+  const initialColor = customOrPreset(device?.color ?? "Black", colorOptions);
   const [manufacturerPreset, setManufacturerPreset] = useState(initialManufacturer.selectedValue);
   const [customManufacturer, setCustomManufacturer] = useState(initialManufacturer.customValue);
   const [colorPreset, setColorPreset] = useState(initialColor.selectedValue);
@@ -109,7 +109,7 @@ export default function DeviceForm({
     <form action={saveDeviceAction} className="space-y-5">
       {device ? <input name="deviceId" type="hidden" value={device.id} /> : null}
       <input name="manufacturer" type="hidden" value={selectedManufacturer} />
-      <input name="color" type="hidden" value={selectedColor} />
+      <input name="color" required type="hidden" value={selectedColor} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-1 text-sm">
@@ -203,7 +203,9 @@ export default function DeviceForm({
             <span className="font-medium text-neutral-700">Color</span>
             <select
               className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+              aria-required="true"
               onChange={(event) => setColorPreset(event.target.value)}
+              required
               value={colorPreset}
             >
               {colorOptions.map((color) => (

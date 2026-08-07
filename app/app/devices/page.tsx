@@ -123,16 +123,16 @@ export default async function DeviceRegistryPage({ searchParams }: DeviceRegistr
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
-        <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+      <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white shadow-sm">
+        <table className="w-full min-w-[1040px] border-collapse text-left text-sm">
           <thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500">
             <tr>
               <th className="px-4 py-3 font-semibold">Device</th>
               <th className="px-4 py-3 font-semibold">Student</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="min-w-[230px] px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 font-semibold">Return due</th>
               <th className="px-4 py-3 font-semibold">Identifier</th>
-              <th className="px-4 py-3 font-semibold">Updated</th>
+              <th className="min-w-[190px] px-4 py-3 font-semibold">Updated</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-200">
@@ -148,7 +148,7 @@ export default async function DeviceRegistryPage({ searchParams }: DeviceRegistr
                 </td>
                 <td className="px-4 py-3 text-neutral-700">{studentName(device.students)}</td>
                 <td className="px-4 py-3">
-                  <span className="rounded-full bg-neutral-100 px-2 py-1 text-xs font-semibold text-neutral-700">
+                  <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-neutral-100 px-2 py-1 text-xs font-semibold text-neutral-700">
                     {statusLabels[device.status]}
                   </span>
                 </td>
@@ -160,7 +160,7 @@ export default async function DeviceRegistryPage({ searchParams }: DeviceRegistr
                 <td className="px-4 py-3 text-neutral-700">
                   {device.asset_tag ?? device.serial_number ?? device.qr_token}
                 </td>
-                <td className="px-4 py-3 text-neutral-500">{formatDateTime(device.updated_at)}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-neutral-500">{formatDateTime(device.updated_at)}</td>
               </tr>
             ))}
             {devices.length === 0 ? (
