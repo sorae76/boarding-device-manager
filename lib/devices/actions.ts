@@ -15,6 +15,7 @@ import type {
   DeviceCustodyEventMethod,
   DeviceCustodyNoticeStatus,
   DeviceCustodyStatus,
+  DeviceCustodyTransitionResult,
   DeviceLifecycleTransition,
   DeviceType
 } from "@/lib/devices/types";
@@ -185,6 +186,40 @@ function validateLifecycleTransition(
   }
 }
 
+async function transitionCustodyWithRpc({
+  deviceId,
+  method,
+  notes,
+  operation,
+  schoolId
+}: {
+  deviceId: string;
+  method: DeviceCustodyEventMethod;
+  notes: string | null;
+  operation: "return" | "release";
+  schoolId: string;
+}) {
+  const { data, error } = await createClient().rpc("transition_residence_device_custody", {
+    target_school_id: schoolId,
+    target_device_id: deviceId,
+    target_operation: operation,
+    target_method: method,
+    target_notes: notes
+  });
+
+  if (error) {
+    throw new Error(`Could not ${operation} device: ${error.message}`);
+  }
+
+  const result = (data?.[0] ?? null) as DeviceCustodyTransitionResult | null;
+
+  if (!result) {
+    throw new Error(`Could not ${operation} device.`);
+  }
+
+  return result;
+}
+
 export async function transitionDeviceLifecycleAction(formData: FormData) {
   const context = await requireDeviceWorkflowContext();
   const supabase = createClient();
@@ -224,6 +259,56 @@ export async function transitionDeviceLifecycleAction(formData: FormData) {
     note,
     isLifecycleAdmin(context.effectiveRole)
   );
+
+  if (transition === "check_in" && lifecycleDevice.status === "checked_out") {
+    const result = await transitionCustodyWithRpc({
+      deviceId: lifecycleDevice.id,
+      method: "manual",
+      notes: note,
+      operation: "return",
+      schoolId
+    });
+
+    if (result.outcome !== "applied") {
+      throw new Error(
+        result.outcome === "stale_status"
+          ? "Device status changed before it could be returned. Refresh and try again."
+          : "The device is not available in your access scope."
+      );
+    }
+
+    revalidatePath("/app/dashboard");
+    revalidatePath("/app/devices");
+    revalidatePath(`/app/devices/${lifecycleDevice.id}`);
+    revalidatePath("/app/returns");
+    revalidatePath("/app/returns/log");
+    redirect(`/app/devices/${lifecycleDevice.id}`);
+  }
+
+  if (transition === "check_out") {
+    const result = await transitionCustodyWithRpc({
+      deviceId: lifecycleDevice.id,
+      method: "manual",
+      notes: note,
+      operation: "release",
+      schoolId
+    });
+
+    if (result.outcome !== "applied") {
+      throw new Error(
+        result.outcome === "stale_status"
+          ? "Device status changed before it could be released. Refresh and try again."
+          : "The device is not available in your access scope."
+      );
+    }
+
+    revalidatePath("/app/dashboard");
+    revalidatePath("/app/devices");
+    revalidatePath(`/app/devices/${lifecycleDevice.id}`);
+    revalidatePath("/app/returns");
+    revalidatePath("/app/returns/log");
+    redirect(`/app/devices/${lifecycleDevice.id}`);
+  }
 
   const eventNotes =
     transition === "set_inactive" ? `Set inactive: ${note}` : note;
@@ -548,11 +633,9 @@ export async function scanReturnDeviceAction(
 ): Promise<ReturnScanState> {
   try {
     const context = await requireDeviceWorkflowContext();
-    const supabase = createClient();
     const schoolId = context.currentSchool.id;
     const lookup = requiredText(formData, "lookup", "QR token, device ID, asset tag, or serial number");
     const method = enumValue(formData, "method", eventMethods, "Method");
-    const confirmDuplicate = textValue(formData, "confirmDuplicate") === "yes";
     const notes = nullableTextValue(formData, "notes");
     const device = await findDeviceByLookup(schoolId, lookup);
 
@@ -567,10 +650,18 @@ export async function scanReturnDeviceAction(
     const deviceLabel = deviceLookupLabel(device);
     const student = deviceLookupStudentName(device);
 
-    if (device.status === "returned" && !confirmDuplicate) {
+    const result = await transitionCustodyWithRpc({
+      deviceId: device.id,
+      method,
+      notes,
+      operation: "return",
+      schoolId
+    });
+
+    if (result.outcome === "stale_status") {
       return {
         status: "already_returned",
-        message: "This device is already marked returned.",
+        message: "This device is already returned or is no longer eligible for return.",
         lookup,
         deviceId: device.id,
         deviceLabel,
@@ -579,19 +670,12 @@ export async function scanReturnDeviceAction(
       };
     }
 
-    const { error } = await supabase.from("device_custody_events").insert({
-      school_id: schoolId,
-      device_id: device.id,
-      student_id: device.student_id,
-      action: "returned",
-      method,
-      performed_by_user_id: context.authUser.id,
-      performed_at: new Date().toISOString(),
-      notes
-    });
-
-    if (error) {
-      throw new Error(error.message);
+    if (result.outcome !== "applied") {
+      return {
+        status: "not_found",
+        message: "No matching device was found in your access scope.",
+        lookup
+      };
     }
 
     revalidatePath("/app/dashboard");
@@ -607,7 +691,7 @@ export async function scanReturnDeviceAction(
       deviceId: device.id,
       deviceLabel,
       studentName: student,
-      latestReturnAt: new Date().toISOString()
+      latestReturnAt: result.performed_at ?? undefined
     };
   } catch (error) {
     return {

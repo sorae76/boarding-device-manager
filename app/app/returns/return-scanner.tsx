@@ -37,7 +37,7 @@ function extractLookup(value: string) {
   return trimmed;
 }
 
-function SubmitButton({ confirmDuplicate }: { confirmDuplicate: boolean }) {
+function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
@@ -46,7 +46,7 @@ function SubmitButton({ confirmDuplicate }: { confirmDuplicate: boolean }) {
       disabled={pending}
       type="submit"
     >
-      {pending ? "Recording..." : confirmDuplicate ? "Record duplicate return" : "Record return"}
+      {pending ? "Recording..." : "Record return"}
     </button>
   );
 }
@@ -57,7 +57,6 @@ export default function ReturnScanner({ initialLookup }: { initialLookup?: strin
   const [method, setMethod] = useState<"qr_scan" | "manual">(initialLookup ? "manual" : "qr_scan");
   const [scanning, setScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [confirmDuplicate, setConfirmDuplicate] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -66,12 +65,7 @@ export default function ReturnScanner({ initialLookup }: { initialLookup?: strin
   useEffect(() => {
     if (state.status === "success") {
       setLookup("");
-      setConfirmDuplicate(false);
       lastScanRef.current = "";
-    }
-
-    if (state.status === "already_returned") {
-      setConfirmDuplicate(true);
     }
   }, [state]);
 
@@ -121,7 +115,6 @@ export default function ReturnScanner({ initialLookup }: { initialLookup?: strin
               lastScanRef.current = nextLookup;
               setLookup(nextLookup);
               setMethod("qr_scan");
-              setConfirmDuplicate(false);
               window.setTimeout(() => formRef.current?.requestSubmit(), 50);
             }
           }
@@ -182,7 +175,6 @@ export default function ReturnScanner({ initialLookup }: { initialLookup?: strin
 
       <section className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
         <form action={formAction} className="space-y-5" ref={formRef}>
-          <input name="confirmDuplicate" type="hidden" value={confirmDuplicate ? "yes" : "no"} />
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-1 text-sm md:col-span-2">
               <span className="font-medium text-neutral-700">
@@ -193,7 +185,6 @@ export default function ReturnScanner({ initialLookup }: { initialLookup?: strin
                 name="lookup"
                 onChange={(event) => {
                   setLookup(event.target.value);
-                  setConfirmDuplicate(false);
                   setMethod("manual");
                 }}
                 required
@@ -247,7 +238,7 @@ export default function ReturnScanner({ initialLookup }: { initialLookup?: strin
                 </p>
               ) : null}
             </div>
-            <SubmitButton confirmDuplicate={confirmDuplicate} />
+            <SubmitButton />
           </div>
         </form>
       </section>

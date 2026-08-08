@@ -21,6 +21,21 @@ export type DeviceLifecycleTransition =
   | "mark_missing"
   | "set_inactive";
 
+export type DeviceCustodyTransitionOutcome =
+  | "applied"
+  | "stale_status"
+  | "not_authorized"
+  | "not_available";
+
+export type DeviceCustodyTransitionResult = {
+  outcome: DeviceCustodyTransitionOutcome;
+  event_id: string | null;
+  device_id: string | null;
+  previous_status: DeviceCustodyStatus | null;
+  current_status: DeviceCustodyStatus | null;
+  performed_at: string | null;
+};
+
 export type DeviceType = "phone" | "tablet" | "laptop" | "watch" | "other";
 
 export type DeviceRegistrationStatus = "pending" | "approved" | "rejected";
