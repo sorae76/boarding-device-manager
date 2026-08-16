@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { requireDeviceWorkflowContext } from "@/lib/devices/access";
+import {
+  canAdministerDeviceRecords,
+  requireDeviceWorkflowContext
+} from "@/lib/devices/access";
 import {
   importValidDeviceCsvRows,
   previewDeviceCsvImport,
@@ -11,9 +14,9 @@ import {
 } from "@/lib/devices/csv-import";
 import { createClient } from "@/lib/supabase/server";
 import type {
-  DeviceCustodyEventAction,
   DeviceCustodyEventMethod,
   DeviceCustodyNoticeStatus,
+  DeviceCustodyOperation,
   DeviceCustodyStatus,
   DeviceCustodyTransitionResult,
   DeviceLifecycleTransition,
@@ -22,12 +25,6 @@ import type {
 
 const deviceTypes: DeviceType[] = ["phone", "tablet", "laptop", "watch", "other"];
 const deviceStatuses: DeviceCustodyStatus[] = ["checked_out", "returned", "inactive", "lost"];
-const eventActions: DeviceCustodyEventAction[] = [
-  "returned",
-  "checked_out",
-  "marked_missing",
-  "exception"
-];
 const eventMethods: DeviceCustodyEventMethod[] = ["qr_scan", "manual"];
 const noticeStatuses: DeviceCustodyNoticeStatus[] = [
   "pending",
@@ -131,24 +128,6 @@ function isLifecycleAdmin(effectiveRole: string) {
   return effectiveRole === "super_admin" || effectiveRole === "school_admin";
 }
 
-function lifecycleEventAction(
-  transition: DeviceLifecycleTransition
-): DeviceCustodyEventAction {
-  if (transition === "check_in") {
-    return "returned";
-  }
-
-  if (transition === "check_out") {
-    return "checked_out";
-  }
-
-  if (transition === "mark_missing") {
-    return "marked_missing";
-  }
-
-  return "exception";
-}
-
 function validateLifecycleTransition(
   transition: DeviceLifecycleTransition,
   currentStatus: DeviceCustodyStatus,
@@ -196,7 +175,7 @@ async function transitionCustodyWithRpc({
   deviceId: string;
   method: DeviceCustodyEventMethod;
   notes: string | null;
-  operation: "return" | "release";
+  operation: DeviceCustodyOperation;
   schoolId: string;
 }) {
   const { data, error } = await createClient().rpc("transition_residence_device_custody", {
@@ -285,6 +264,27 @@ export async function transitionDeviceLifecycleAction(formData: FormData) {
     redirect(`/app/devices/${lifecycleDevice.id}`);
   }
 
+  if (transition === "check_in" && lifecycleDevice.status === "lost") {
+    const result = await transitionCustodyWithRpc({
+      deviceId: lifecycleDevice.id,
+      method: "manual",
+      notes: note,
+      operation: "recover_missing",
+      schoolId
+    });
+
+    if (result.outcome !== "applied") {
+      throw new Error(
+        result.outcome === "stale_status"
+          ? "Device status changed before it could be recovered. Refresh and try again."
+          : "The device is not available in your access scope."
+      );
+    }
+
+    revalidateDeviceWorkflowPaths(lifecycleDevice.id);
+    redirect(`/app/devices/${lifecycleDevice.id}`);
+  }
+
   if (transition === "check_out") {
     const result = await transitionCustodyWithRpc({
       deviceId: lifecycleDevice.id,
@@ -310,13 +310,33 @@ export async function transitionDeviceLifecycleAction(formData: FormData) {
     redirect(`/app/devices/${lifecycleDevice.id}`);
   }
 
-  const eventNotes =
-    transition === "set_inactive" ? `Set inactive: ${note}` : note;
+  if (transition === "mark_missing") {
+    const result = await transitionCustodyWithRpc({
+      deviceId: lifecycleDevice.id,
+      method: "manual",
+      notes: note,
+      operation: "mark_missing",
+      schoolId
+    });
+
+    if (result.outcome !== "applied") {
+      throw new Error(
+        result.outcome === "stale_status"
+          ? "Device status changed before it could be marked missing. Refresh and try again."
+          : "The device is not available in your access scope."
+      );
+    }
+
+    revalidateDeviceWorkflowPaths(lifecycleDevice.id);
+    redirect(`/app/devices/${lifecycleDevice.id}`);
+  }
+
+  const eventNotes = `Set inactive: ${note}`;
   const { error: eventError } = await supabase.from("device_custody_events").insert({
     school_id: schoolId,
     device_id: lifecycleDevice.id,
     student_id: lifecycleDevice.student_id,
-    action: lifecycleEventAction(transition),
+    action: "exception",
     method: "manual",
     performed_by_user_id: context.authUser.id,
     performed_at: new Date().toISOString(),
@@ -383,14 +403,46 @@ export async function saveDeviceAction(formData: FormData) {
   };
 
   if (deviceId) {
-    const { error } = await supabase
-      .from("device_custody_devices")
-      .update(payload)
-      .eq("school_id", schoolId)
-      .eq("id", deviceId);
+    if (canAdministerDeviceRecords(context)) {
+      const { error } = await supabase
+        .from("device_custody_devices")
+        .update(payload)
+        .eq("school_id", schoolId)
+        .eq("id", deviceId);
 
-    if (error) {
-      throw new Error(`Could not update device: ${error.message}`);
+      if (error) {
+        throw new Error(`Could not update device: ${error.message}`);
+      }
+    } else {
+      const { error: identityError } = await supabase.rpc(
+        "correct_residence_device_identity",
+        {
+          target_device_id: deviceId,
+          target_device_type: payload.device_type,
+          target_manufacturer: payload.manufacturer,
+          target_model: payload.model,
+          target_color: payload.color,
+          target_serial_number: payload.serial_number,
+          target_asset_tag: payload.asset_tag,
+          target_notes: payload.notes
+        }
+      );
+
+      if (identityError) {
+        throw new Error(`Could not update device identity: ${identityError.message}`);
+      }
+
+      const { error: deadlineError } = await supabase.rpc(
+        "set_residence_device_return_deadline",
+        {
+          target_device_id: deviceId,
+          target_return_due_at: payload.return_due_at
+        }
+      );
+
+      if (deadlineError) {
+        throw new Error(`Could not update return deadline: ${deadlineError.message}`);
+      }
     }
 
     revalidatePath("/app/dashboard");
@@ -399,16 +451,18 @@ export async function saveDeviceAction(formData: FormData) {
     redirect(`/app/devices/${deviceId}`);
   }
 
-  const { data, error } = await supabase
-    .from("device_custody_devices")
-    .insert({
-      ...payload,
-      qr_token: crypto.randomUUID(),
-      status: initialStatus ?? "checked_out",
-      created_by_user_id: nowUserId
-    })
-    .select("id")
-    .single();
+  const { data, error } = await supabase.rpc("register_residence_device", {
+    target_student_id: payload.student_id,
+    target_device_type: payload.device_type,
+    target_manufacturer: payload.manufacturer,
+    target_model: payload.model,
+    target_color: payload.color,
+    target_serial_number: payload.serial_number,
+    target_asset_tag: payload.asset_tag,
+    target_return_due_at: payload.return_due_at,
+    target_notes: payload.notes,
+    target_initial_status: initialStatus ?? "checked_out"
+  });
 
   if (error) {
     throw new Error(`Could not create device: ${error.message}`);
@@ -416,7 +470,15 @@ export async function saveDeviceAction(formData: FormData) {
 
   revalidatePath("/app/dashboard");
   revalidatePath("/app/devices");
-  redirect(`/app/devices/${data.id}`);
+  redirect(`/app/devices/${data}`);
+}
+
+function revalidateDeviceWorkflowPaths(deviceId: string) {
+  revalidatePath("/app/dashboard");
+  revalidatePath("/app/devices");
+  revalidatePath(`/app/devices/${deviceId}`);
+  revalidatePath("/app/returns");
+  revalidatePath("/app/returns/log");
 }
 
 export async function previewDeviceCsvImportAction(
@@ -590,43 +652,6 @@ async function latestReturnTime(schoolId: string, deviceId: string) {
   return (data as { performed_at: string } | null)?.performed_at ?? null;
 }
 
-export async function recordReturnEventAction(formData: FormData) {
-  const context = await requireDeviceWorkflowContext();
-  const supabase = createClient();
-  const schoolId = context.currentSchool.id;
-  const lookup = requiredText(formData, "lookup", "QR token, device ID, asset tag, or serial number");
-  const action = enumValue(formData, "action", eventActions, "Action");
-  const method = enumValue(formData, "method", eventMethods, "Method");
-  const notes = nullableTextValue(formData, "notes");
-  const device = await findDeviceByLookup(schoolId, lookup);
-
-  if (!device) {
-    throw new Error("No matching device was found for this school.");
-  }
-
-  const { error: eventError } = await supabase.from("device_custody_events").insert({
-    school_id: schoolId,
-    device_id: device.id,
-    student_id: device.student_id,
-    action,
-    method,
-    performed_by_user_id: context.authUser.id,
-    performed_at: new Date().toISOString(),
-    notes
-  });
-
-  if (eventError) {
-    throw new Error(`Could not record return event: ${eventError.message}`);
-  }
-
-  revalidatePath("/app/dashboard");
-  revalidatePath("/app/devices");
-  revalidatePath(`/app/devices/${device.id}`);
-  revalidatePath("/app/returns");
-  revalidatePath("/app/returns/log");
-  redirect(`/app/devices/${device.id}`);
-}
-
 export async function scanReturnDeviceAction(
   _previousState: ReturnScanState,
   formData: FormData
@@ -703,21 +728,15 @@ export async function scanReturnDeviceAction(
 
 export async function reviewNoticeAction(formData: FormData) {
   const context = await requireDeviceWorkflowContext();
-  const supabase = createClient();
   const noticeId = requiredText(formData, "noticeId", "Notice");
   const status = enumValue(formData, "status", noticeStatuses, "Notice status");
   const notes = nullableTextValue(formData, "reviewNotes");
 
-  const { error } = await supabase
-    .from("device_custody_notices")
-    .update({
-      status,
-      reviewed_by_user_id: context.authUser.id,
-      reviewed_at: new Date().toISOString(),
-      review_notes: notes
-    })
-    .eq("school_id", context.currentSchool.id)
-    .eq("id", noticeId);
+  const { error } = await createClient().rpc("review_residence_device_notice", {
+    target_notice_id: noticeId,
+    target_status: status,
+    target_review_notes: notes
+  });
 
   if (error) {
     throw new Error(`Could not update notice: ${error.message}`);

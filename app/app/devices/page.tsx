@@ -1,6 +1,9 @@
 import Link from "next/link";
 
-import { requireDeviceWorkflowContext } from "@/lib/devices/access";
+import {
+  canImportDevices,
+  requireDeviceWorkflowContext
+} from "@/lib/devices/access";
 import { listDevices, listPendingDeviceRegistrations, listStudentDeviceIssuesForStaff } from "@/lib/devices/data";
 import {
   deviceName,
@@ -102,12 +105,14 @@ export default async function DeviceRegistryPage({ searchParams }: DeviceRegistr
           >
             Download template
           </Link>
-          <Link
-            className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-center text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-            href="/app/devices/import"
-          >
-            Import CSV
-          </Link>
+          {canImportDevices(context) ? (
+            <Link
+              className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-center text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+              href="/app/devices/import"
+            >
+              Import CSV
+            </Link>
+          ) : null}
           <Link
             className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-center text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
             href="/app/devices/export"

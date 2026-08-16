@@ -1,7 +1,10 @@
 import Link from "next/link";
 
 import DeviceForm from "@/app/app/devices/device-form";
-import { requireDeviceWorkflowContext } from "@/lib/devices/access";
+import {
+  canAdministerDeviceRecords,
+  requireDeviceWorkflowContext
+} from "@/lib/devices/access";
 import {
   getDeviceCountsByStudentId,
   getExistingDeviceAssetTags,
@@ -29,6 +32,7 @@ export default async function NewDevicePage() {
 
       <section className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
         <DeviceForm
+          canChooseAdministrativeStatus={canAdministerDeviceRecords(context)}
           cancelHref="/app/devices"
           existingAssetTags={existingAssetTags}
           existingDeviceCountsByStudentId={existingDeviceCountsByStudentId}

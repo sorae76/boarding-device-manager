@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 
-import { requireDeviceWorkflowContext } from "@/lib/devices/access";
+import { requireDeviceImportContext } from "@/lib/devices/access";
 import { parseDeviceCsv, type CsvRow } from "@/lib/devices/csv";
 import { deviceTypes, generateNextReadableAssetTag } from "@/lib/devices/field-options";
 import { listDevices, listStudents } from "@/lib/devices/data";
@@ -190,7 +190,7 @@ function validateRows(
 }
 
 async function loadImportContext() {
-  const context = await requireDeviceWorkflowContext();
+  const context = await requireDeviceImportContext();
   const [students, devices] = await Promise.all([listStudents(context), listDevices(context)]);
 
   return {

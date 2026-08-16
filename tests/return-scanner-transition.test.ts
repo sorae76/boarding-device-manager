@@ -6,7 +6,7 @@ async function read(path: string) {
   return readFile(new URL(path, import.meta.url), "utf8");
 }
 
-test("device lifecycle Return and Release use the atomic RPC while other transitions remain separate", async () => {
+test("device lifecycle routes custody transitions through the atomic RPC", async () => {
   const actions = await read("../lib/devices/actions.ts");
 
   assert.match(actions, /transitionCustodyWithRpc/);
@@ -15,8 +15,12 @@ test("device lifecycle Return and Release use the atomic RPC while other transit
   assert.match(actions, /operation: "return"/);
   assert.match(actions, /transition === "check_out"/);
   assert.match(actions, /operation: "release"/);
+  assert.match(actions, /transition === "mark_missing"/);
+  assert.match(actions, /operation: "mark_missing"/);
+  assert.match(actions, /lifecycleDevice\.status === "lost"/);
+  assert.match(actions, /operation: "recover_missing"/);
   assert.match(actions, /transition === "set_inactive"/);
-  assert.match(actions, /lifecycleEventAction\(transition\)/);
+  assert.doesNotMatch(actions, /lifecycleEventAction/);
 });
 
 test("scanner preserves all lookup methods and sends QR/manual method to the atomic RPC", async () => {

@@ -15,6 +15,17 @@ export function canAccessDeviceWorkflows(context: CurrentSessionContext) {
   );
 }
 
+export function canAdministerDeviceRecords(context: CurrentSessionContext) {
+  return (
+    context.effectiveRole === "super_admin" ||
+    context.effectiveRole === "school_admin"
+  );
+}
+
+export function canImportDevices(context: CurrentSessionContext) {
+  return canAdministerDeviceRecords(context);
+}
+
 export function canAccessDeviceDashboard(context: CurrentSessionContext) {
   return (
     context.effectiveRole === "super_admin" ||
@@ -41,4 +52,14 @@ export async function requireDeviceWorkflowContext() {
   }
 
   return context as DeviceWorkflowContext;
+}
+
+export async function requireDeviceImportContext() {
+  const context = await requireDeviceWorkflowContext();
+
+  if (!canImportDevices(context)) {
+    notFound();
+  }
+
+  return context;
 }

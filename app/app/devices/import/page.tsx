@@ -1,12 +1,12 @@
 import Link from "next/link";
 
 import DeviceImportForm from "@/app/app/devices/import/import-form";
-import { requireDeviceWorkflowContext } from "@/lib/devices/access";
+import { requireDeviceImportContext } from "@/lib/devices/access";
 
 export const dynamic = "force-dynamic";
 
 export default async function DeviceImportPage() {
-  await requireDeviceWorkflowContext();
+  await requireDeviceImportContext();
 
   return (
     <div className="space-y-5">

@@ -2,7 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import DeviceForm from "@/app/app/devices/device-form";
-import { requireDeviceWorkflowContext } from "@/lib/devices/access";
+import {
+  canAdministerDeviceRecords,
+  requireDeviceWorkflowContext
+} from "@/lib/devices/access";
 import { getDevice, listStudents } from "@/lib/devices/data";
 import { deviceName } from "@/lib/devices/format";
 
@@ -37,7 +40,11 @@ export default async function EditDevicePage({ params }: EditDevicePageProps) {
       </div>
 
       <section className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
-        <DeviceForm device={device} students={students} />
+        <DeviceForm
+          canReassignStudent={canAdministerDeviceRecords(context)}
+          device={device}
+          students={students}
+        />
       </section>
     </div>
   );

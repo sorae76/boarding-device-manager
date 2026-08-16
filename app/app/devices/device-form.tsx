@@ -21,6 +21,8 @@ import type { CustodyDevice, DeviceCustodyStatus, DeviceType, StudentSummary } f
 const statuses: DeviceCustodyStatus[] = ["checked_out", "returned", "inactive", "lost"];
 
 type DeviceFormProps = {
+  canChooseAdministrativeStatus?: boolean;
+  canReassignStudent?: boolean;
   cancelHref?: string;
   device?: CustodyDevice;
   existingDeviceCountsByStudentId?: Record<string, number>;
@@ -50,6 +52,8 @@ function customOrPreset(value: string | null | undefined, options: string[]) {
 }
 
 export default function DeviceForm({
+  canChooseAdministrativeStatus = false,
+  canReassignStudent = false,
   cancelHref,
   device,
   existingAssetTags = [],
@@ -112,24 +116,37 @@ export default function DeviceForm({
       <input name="color" required type="hidden" value={selectedColor} />
 
       <div className="grid gap-4 md:grid-cols-2">
-        <label className="space-y-1 text-sm">
-          <span className="font-medium text-neutral-700">Student</span>
-          <select
-            className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
-            defaultValue={device?.student_id ?? ""}
-            name="studentId"
-            onChange={(event) => handleStudentChange(event.target.value)}
-            required
-          >
-            <option value="">Select student</option>
-            {students.map((student) => (
-              <option key={student.id} value={student.id}>
-                {studentName(student)}
-                {student.student_number ? ` (${student.student_number})` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
+        {device && !canReassignStudent ? (
+          <div className="space-y-1 text-sm">
+            <span className="font-medium text-neutral-700">Student</span>
+            <input name="studentId" type="hidden" value={device.student_id} />
+            <p className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-neutral-700">
+              {studentName(device.students)}
+            </p>
+            <span className="block text-xs text-neutral-500">
+              Student reassignment is restricted to school administrators.
+            </span>
+          </div>
+        ) : (
+          <label className="space-y-1 text-sm">
+            <span className="font-medium text-neutral-700">Student</span>
+            <select
+              className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+              defaultValue={device?.student_id ?? ""}
+              name="studentId"
+              onChange={(event) => handleStudentChange(event.target.value)}
+              required
+            >
+              <option value="">Select student</option>
+              {students.map((student) => (
+                <option key={student.id} value={student.id}>
+                  {studentName(student)}
+                  {student.student_number ? ` (${student.student_number})` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <label className="space-y-1 text-sm">
           <span className="font-medium text-neutral-700">Device type</span>
@@ -283,11 +300,18 @@ export default function DeviceForm({
                   defaultValue="checked_out"
                   name="status"
                 >
-                  {statuses.map((status) => (
+                  {statuses
+                    .filter(
+                      (status) =>
+                        canChooseAdministrativeStatus ||
+                        status === "checked_out" ||
+                        status === "returned"
+                    )
+                    .map((status) => (
                     <option key={status} value={status}>
                       {statusLabels[status]}
                     </option>
-                  ))}
+                    ))}
                 </select>
               </label>
             )}

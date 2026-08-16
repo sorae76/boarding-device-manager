@@ -36,6 +36,12 @@ export type DeviceCustodyTransitionResult = {
   performed_at: string | null;
 };
 
+export type DeviceCustodyOperation =
+  | "return"
+  | "release"
+  | "mark_missing"
+  | "recover_missing";
+
 export type DeviceType = "phone" | "tablet" | "laptop" | "watch" | "other";
 
 export type DeviceRegistrationStatus = "pending" | "approved" | "rejected";
