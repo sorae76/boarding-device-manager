@@ -9,6 +9,7 @@ import type {
   DevicePass,
   DeviceCustodyStatus,
   DeviceRegistryFilters,
+  RapidScanStudent,
   StudentCustodyStatus,
   StudentCustodySummary,
   StudentSummary,
@@ -165,6 +166,74 @@ export async function listStudents(context: DeviceWorkflowContext): Promise<Stud
   }
 
   return (data ?? []) as StudentSummary[];
+}
+
+type RapidScanResidence = {
+  id: string;
+  name: string;
+  code: string | null;
+};
+
+type RapidScanStudentRow = {
+  id: string;
+  student_number: string | null;
+  first_name: string;
+  last_name: string;
+  dorm_id: string | null;
+  dorms: RapidScanResidence | RapidScanResidence[] | null;
+};
+
+export async function listRapidScanStudents(
+  context: DeviceWorkflowContext
+): Promise<RapidScanStudent[]> {
+  const supabase = createClient();
+  const [studentResult, devices] = await Promise.all([
+    supabase
+      .from("students")
+      .select("id,student_number,first_name,last_name,dorm_id,dorms(id,name,code)")
+      .eq("school_id", context.currentSchool.id)
+      .eq("status", "active")
+      .order("last_name", { ascending: true })
+      .order("first_name", { ascending: true }),
+    listDevices(context)
+  ]);
+
+  if (studentResult.error) {
+    throw new Error(`Could not load Rapid Scan students: ${studentResult.error.message}`);
+  }
+
+  const devicesByStudentId = new Map<string, RapidScanStudent["devices"]>();
+  for (const device of devices) {
+    const studentDevices = devicesByStudentId.get(device.student_id) ?? [];
+    studentDevices.push({
+      id: device.id,
+      qrToken: device.qr_token,
+      assetTag: device.asset_tag,
+      serialNumber: device.serial_number,
+      manufacturer: device.manufacturer,
+      model: device.model,
+      deviceType: device.device_type,
+      status: device.status
+    });
+    devicesByStudentId.set(device.student_id, studentDevices);
+  }
+
+  return ((studentResult.data ?? []) as RapidScanStudentRow[]).map((student) => {
+    const residence = Array.isArray(student.dorms) ? student.dorms[0] ?? null : student.dorms;
+    const residenceLabel = residence
+      ? `${residence.name}${residence.code ? ` (${residence.code})` : ""}`
+      : null;
+
+    return {
+      id: student.id,
+      studentNumber: student.student_number,
+      firstName: student.first_name,
+      lastName: student.last_name,
+      residenceId: student.dorm_id,
+      residenceLabel,
+      devices: devicesByStudentId.get(student.id) ?? []
+    };
+  });
 }
 
 export async function listDevices(

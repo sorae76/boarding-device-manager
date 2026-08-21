@@ -20,6 +20,8 @@ import type {
   DeviceCustodyStatus,
   DeviceCustodyTransitionResult,
   DeviceLifecycleTransition,
+  RapidScanTransitionRequest,
+  RapidScanTransitionResult,
   DeviceType
 } from "@/lib/devices/types";
 
@@ -197,6 +199,62 @@ async function transitionCustodyWithRpc({
   }
 
   return result;
+}
+
+export async function rapidScanTransitionAction(
+  request: RapidScanTransitionRequest
+): Promise<RapidScanTransitionResult> {
+  const context = await requireDeviceWorkflowContext();
+  const deviceId = typeof request.deviceId === "string" ? request.deviceId.trim() : "";
+  const operation = request.operation;
+
+  if (!isUuid(deviceId) || (operation !== "release" && operation !== "return")) {
+    return {
+      status: "unavailable",
+      message: "No matching device is available in your access scope.",
+      deviceId,
+      previousStatus: null,
+      currentStatus: null
+    };
+  }
+
+  const result = await transitionCustodyWithRpc({
+    deviceId,
+    method: "manual",
+    notes: null,
+    operation,
+    schoolId: context.currentSchool.id
+  });
+
+  if (result.outcome === "applied") {
+    revalidateDeviceWorkflowPaths(deviceId);
+    revalidatePath("/app/rapid-scan");
+    return {
+      status: "applied",
+      message: operation === "release" ? "Release recorded." : "Return recorded.",
+      deviceId,
+      previousStatus: result.previous_status,
+      currentStatus: result.current_status
+    };
+  }
+
+  if (result.outcome === "stale_status") {
+    return {
+      status: "stale_status",
+      message: "Already processed or status changed.",
+      deviceId,
+      previousStatus: result.previous_status,
+      currentStatus: result.current_status
+    };
+  }
+
+  return {
+    status: "unavailable",
+    message: "No matching device is available in your access scope.",
+    deviceId,
+    previousStatus: null,
+    currentStatus: null
+  };
 }
 
 export async function transitionDeviceLifecycleAction(formData: FormData) {

@@ -42,6 +42,42 @@ export type DeviceCustodyOperation =
   | "mark_missing"
   | "recover_missing";
 
+export type RapidScanMode = "release" | "return";
+
+export type RapidScanDevice = {
+  id: string;
+  qrToken: string;
+  assetTag: string | null;
+  serialNumber: string | null;
+  manufacturer: string;
+  model: string;
+  deviceType: DeviceType;
+  status: DeviceCustodyStatus;
+};
+
+export type RapidScanStudent = {
+  id: string;
+  studentNumber: string | null;
+  firstName: string;
+  lastName: string;
+  residenceId: string | null;
+  residenceLabel: string | null;
+  devices: RapidScanDevice[];
+};
+
+export type RapidScanTransitionRequest = {
+  deviceId: string;
+  operation: RapidScanMode;
+};
+
+export type RapidScanTransitionResult = {
+  status: "applied" | "stale_status" | "unavailable";
+  message: string;
+  deviceId: string;
+  previousStatus: DeviceCustodyStatus | null;
+  currentStatus: DeviceCustodyStatus | null;
+};
+
 export type DeviceType = "phone" | "tablet" | "laptop" | "watch" | "other";
 
 export type DeviceRegistrationStatus = "pending" | "approved" | "rejected";
