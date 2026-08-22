@@ -41,10 +41,61 @@ test("Rapid Scan exposes only explicit per-device release and return modes", asy
   assert.match(workstation, /Evening Return/);
   assert.match(workstation, /mode === "release"[\s\S]*"returned"/);
   assert.match(workstation, /mode === "return"[\s\S]*"checked_out"/);
-  assert.doesNotMatch(workstation, /Release All|Return All|BarcodeDetector|getUserMedia/);
+  assert.doesNotMatch(workstation, /Release All|Return All/);
   assert.match(actions, /rapidScanTransitionAction/);
   assert.match(actions, /operation !== "release" && operation !== "return"/);
   assert.match(actions, /method: "manual"/);
+});
+
+test("Rapid Scan camera uses the local QR camera foundation and cleans it up safely", async () => {
+  const workstation = await read("../app/app/rapid-scan/rapid-scan-workstation.tsx");
+
+  assert.match(workstation, /BarcodeDetector/);
+  assert.match(workstation, /formats: \["qr_code"\]/);
+  assert.match(workstation, /navigator\.mediaDevices\.getUserMedia/);
+  assert.match(workstation, /video: \{ facingMode: "environment" \}/);
+  assert.match(workstation, /audio: false/);
+  assert.match(workstation, /playsInline/);
+  assert.match(workstation, /requestAnimationFrame\(scan\)/);
+  assert.match(workstation, /cancelAnimationFrame\(animationFrame\)/);
+  assert.match(workstation, /getTracks\(\)\.forEach\(\(track\) => track\.stop\(\)\)/);
+  assert.match(workstation, /catch \{[\s\S]*Camera scanning could not continue[\s\S]*setScanning\(false\)/);
+  assert.match(workstation, /does not support camera QR scanning\. Use manual search/);
+});
+
+test("camera QR resolution is device-only, exact, residence-filtered, and selects the owner", async () => {
+  const workstation = await read("../app/app/rapid-scan/rapid-scan-workstation.tsx");
+  const resolverStart = workstation.indexOf("function resolveScannedDevice");
+  const resolverEnd = workstation.indexOf("export function rapidScanStudentMatches", resolverStart);
+  const resolver = workstation.slice(resolverStart, resolverEnd);
+
+  assert.match(resolver, /devicePassLookup\(rawValue\)/);
+  for (const field of ["device.id", "device.qrToken", "device.assetTag", "device.serialNumber"]) {
+    assert.match(resolver, new RegExp(field.replace(".", "\\.")));
+  }
+  assert.match(resolver, /identifier === query/);
+  assert.match(resolver, /matches\.length === 1/);
+  assert.doesNotMatch(resolver, /firstName|lastName|studentNumber|includes\(/);
+  assert.match(workstation, /resolveScannedDevice\(residenceStudentsRef\.current, parsedValue\)/);
+  assert.match(workstation, /setSelectedStudentId\(match\.student\.id\)/);
+  assert.match(workstation, /setScannedDeviceId\(match\.device\.id\)/);
+  assert.match(workstation, /Scanned device — custody unchanged/);
+});
+
+test("camera scans update UI only and never enter the custody mutation path", async () => {
+  const workstation = await read("../app/app/rapid-scan/rapid-scan-workstation.tsx");
+  const cameraStart = workstation.indexOf("async function startCamera");
+  const cameraEnd = workstation.indexOf("}, [scanning]);", cameraStart);
+  const camera = workstation.slice(cameraStart, cameraEnd);
+
+  assert.doesNotMatch(camera, /requestSubmit|scanReturnDeviceAction|rapidScanTransitionAction|runTransition/);
+  assert.match(camera, /lastScanRef\.current/);
+  assert.match(camera, /normalize\(parsedValue\) !== normalize\(lastScanRef\.current\)/);
+  assert.match(camera, /setSearchMessage\(unavailableMessage\)/);
+  assert.match(camera, /setSelectedStudentId\(null\)/);
+  assert.match(workstation, /onClick=\{\(\) => runTransition\(device\.id\)\}/);
+  assert.match(workstation, /rapidScanTransitionAction\(\{ deviceId, operation: mode \}\)/);
+  assert.match(workstation, /mode === "release" \? "Release device" : "Return device"/);
 });
 
 test("Rapid Scan action reuses the atomic RPC wrapper and returns safe outcomes", async () => {

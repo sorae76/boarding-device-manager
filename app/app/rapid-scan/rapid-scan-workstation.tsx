@@ -6,6 +6,7 @@ import { rapidScanTransitionAction } from "@/lib/devices/actions";
 import { deviceTypeLabels, statusLabels } from "@/lib/devices/format";
 import type {
   DeviceCustodyStatus,
+  RapidScanDevice,
   RapidScanMode,
   RapidScanStudent,
   RapidScanTransitionResult
@@ -28,6 +29,45 @@ function devicePassLookup(value: string) {
   } catch {
     return trimmed;
   }
+}
+
+type DetectedBarcode = {
+  rawValue: string;
+};
+
+type BarcodeDetectorLike = {
+  detect(video: HTMLVideoElement): Promise<DetectedBarcode[]>;
+};
+
+type ScannedDeviceMatch = {
+  student: RapidScanStudent;
+  device: RapidScanDevice;
+};
+
+function resolveScannedDevice(
+  students: RapidScanStudent[],
+  rawValue: string
+): ScannedDeviceMatch | null {
+  const query = normalize(devicePassLookup(rawValue));
+  if (!query) return null;
+
+  const matches: ScannedDeviceMatch[] = [];
+  for (const student of students) {
+    for (const device of student.devices) {
+      const identifiers = [
+        device.id,
+        device.qrToken,
+        device.assetTag ?? "",
+        device.serialNumber ?? ""
+      ].map(normalize);
+
+      if (identifiers.some((identifier) => identifier === query)) {
+        matches.push({ student, device });
+      }
+    }
+  }
+
+  return matches.length === 1 ? matches[0] : null;
 }
 
 export function rapidScanStudentMatches(student: RapidScanStudent, rawQuery: string) {
@@ -72,10 +112,17 @@ export default function RapidScanWorkstation({
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [residenceFilter, setResidenceFilter] = useState("all");
   const [pendingDeviceId, setPendingDeviceId] = useState<string | null>(null);
+  const [scannedDeviceId, setScannedDeviceId] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<RapidScanTransitionResult | null>(null);
   const [searchMessage, setSearchMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const searchRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const lastScanRef = useRef("");
+  const residenceStudentsRef = useRef<RapidScanStudent[]>([]);
   const deferredQuery = useDeferredValue(query);
 
   useEffect(() => {
@@ -103,6 +150,101 @@ export default function RapidScanWorkstation({
     [residenceFilter, students]
   );
 
+  useEffect(() => {
+    residenceStudentsRef.current = residenceStudents;
+  }, [residenceStudents]);
+
+  useEffect(() => {
+    if (!scanning) {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      return;
+    }
+
+    let cancelled = false;
+    let animationFrame = 0;
+
+    async function startCamera() {
+      try {
+        const Detector = (window as unknown as {
+          BarcodeDetector?: new (options: { formats: string[] }) => BarcodeDetectorLike;
+        }).BarcodeDetector;
+
+        if (!Detector) {
+          setCameraError("This browser does not support camera QR scanning. Use manual search.");
+          setScanning(false);
+          return;
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false
+        });
+
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+
+        const detector = new Detector({ formats: ["qr_code"] });
+        const scan = async () => {
+          if (cancelled || !videoRef.current) return;
+
+          try {
+            const barcodes = await detector.detect(videoRef.current);
+            const parsedValue = devicePassLookup(barcodes[0]?.rawValue ?? "");
+
+            if (parsedValue && normalize(parsedValue) !== normalize(lastScanRef.current)) {
+              lastScanRef.current = parsedValue;
+              const match = resolveScannedDevice(residenceStudentsRef.current, parsedValue);
+
+              if (match) {
+                setSelectedStudentId(match.student.id);
+                setQuery(studentName(match.student));
+                setScannedDeviceId(match.device.id);
+                setSearchMessage("Scanned device found. Choose an explicit device action below.");
+                setFeedback(null);
+              } else {
+                setSelectedStudentId(null);
+                setScannedDeviceId(null);
+                setQuery("");
+                setSearchMessage(unavailableMessage);
+              }
+            }
+          } catch {
+            setCameraError("Camera scanning could not continue. Use manual search.");
+            setScanning(false);
+            return;
+          }
+
+          if (!cancelled) animationFrame = window.requestAnimationFrame(scan);
+        };
+
+        animationFrame = window.requestAnimationFrame(scan);
+      } catch (error) {
+        if (!cancelled) {
+          setCameraError(error instanceof Error ? error.message : "Camera could not be opened. Use manual search.");
+          setScanning(false);
+        }
+      }
+    }
+
+    void startCamera();
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(animationFrame);
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    };
+  }, [scanning]);
+
   const matches = useMemo(
     () =>
       deferredQuery.trim()
@@ -125,6 +267,7 @@ export default function RapidScanWorkstation({
   function selectStudent(student: RapidScanStudent) {
     setSelectedStudentId(student.id);
     setQuery(studentName(student));
+    setScannedDeviceId(null);
     setSearchMessage("");
     setFeedback(null);
   }
@@ -143,6 +286,8 @@ export default function RapidScanWorkstation({
     setQuery("");
     setFeedback(null);
     setSearchMessage("");
+    setScannedDeviceId(null);
+    lastScanRef.current = "";
     window.requestAnimationFrame(() => searchRef.current?.focus());
   }
 
@@ -218,6 +363,8 @@ export default function RapidScanWorkstation({
               onChange={(event) => {
                 setResidenceFilter(event.target.value);
                 setSelectedStudentId(null);
+                setScannedDeviceId(null);
+                lastScanRef.current = "";
               }}
               value={residenceFilter}
             >
@@ -228,6 +375,36 @@ export default function RapidScanWorkstation({
             </select>
           </label>
         ) : null}
+        <div className="mt-3 rounded-md border border-neutral-200 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-neutral-900">Camera QR fallback</p>
+              <p className="mt-1 text-sm text-neutral-600">
+                Scanning identifies a device and student only. It does not change custody.
+              </p>
+            </div>
+            <button
+              className="min-h-12 rounded-md border border-neutral-300 px-4 font-semibold text-neutral-700"
+              onClick={() => {
+                setCameraError(null);
+                if (!scanning) lastScanRef.current = "";
+                setScanning((current) => !current);
+              }}
+              type="button"
+            >
+              {scanning ? "Stop Scan" : "Start Scan"}
+            </button>
+          </div>
+          {cameraError ? <p className="mt-3 text-sm font-semibold text-brand" role="status">{cameraError}</p> : null}
+          {scanning ? (
+            <video
+              className="mt-3 aspect-video w-full rounded-md bg-neutral-950 object-cover"
+              muted
+              playsInline
+              ref={videoRef}
+            />
+          ) : null}
+        </div>
         <form className="mt-3 flex flex-col gap-2 sm:flex-row" onSubmit={submitSearch}>
           <label className="flex-1 text-sm font-medium text-neutral-700">
             Student or device identifier
@@ -238,6 +415,7 @@ export default function RapidScanWorkstation({
               onChange={(event) => {
                 setQuery(event.target.value);
                 setSearchMessage("");
+                setScannedDeviceId(null);
               }}
               placeholder="Name, student number, asset tag, serial, or QR token"
               ref={searchRef}
@@ -311,7 +489,12 @@ export default function RapidScanWorkstation({
               const eligible = Boolean(mode && device.status === requiredStatus);
               const pending = pendingDeviceId === device.id;
               return (
-                <article className="rounded-md border border-neutral-200 p-4" key={device.id}>
+                <article
+                  className={`rounded-md border p-4 ${
+                    scannedDeviceId === device.id ? "border-brand bg-brand-soft" : "border-neutral-200"
+                  }`}
+                  key={device.id}
+                >
                   <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                     <div>
                       <h3 className="font-semibold text-neutral-950">{device.manufacturer} {device.model}</h3>
@@ -319,6 +502,9 @@ export default function RapidScanWorkstation({
                         {deviceTypeLabels[device.deviceType]} / {device.assetTag ?? device.serialNumber ?? "No asset or serial"}
                       </p>
                       <p className="mt-2 text-sm font-semibold text-neutral-800">Status: {statusLabels[device.status]}</p>
+                      {scannedDeviceId === device.id ? (
+                        <p className="mt-2 text-sm font-semibold text-brand">Scanned device — custody unchanged</p>
+                      ) : null}
                     </div>
                     {eligible ? (
                       <button
