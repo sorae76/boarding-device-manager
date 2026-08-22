@@ -63,6 +63,20 @@ test("Rapid Scan camera uses the local QR camera foundation and cleans it up saf
   assert.match(workstation, /does not support camera QR scanning\. Use manual search/);
 });
 
+test("camera scan start is gated until an explicit operating mode is selected", async () => {
+  const workstation = await read("../app/app/rapid-scan/rapid-scan-workstation.tsx");
+  const scanControlStart = workstation.indexOf("Camera QR fallback");
+  const scanControlEnd = workstation.indexOf("<form", scanControlStart);
+  const scanControl = workstation.slice(scanControlStart, scanControlEnd);
+
+  assert.match(scanControl, /disabled=\{!mode\}/);
+  assert.match(scanControl, /if \(!mode\) return;[\s\S]*setScanning\(\(current\) => !current\)/);
+  assert.match(scanControl, /Select Morning Release or Evening Return before starting the camera/);
+  assert.match(workstation, /onClick=\{\(\) => chooseMode\(value\)\}/);
+  assert.match(workstation, /onClick=\{\(\) => runTransition\(device\.id\)\}/);
+  assert.match(workstation, /rapidScanTransitionAction\(\{ deviceId, operation: mode \}\)/);
+});
+
 test("camera QR resolution is device-only, exact, residence-filtered, and selects the owner", async () => {
   const workstation = await read("../app/app/rapid-scan/rapid-scan-workstation.tsx");
   const resolverStart = workstation.indexOf("function resolveScannedDevice");

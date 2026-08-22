@@ -384,8 +384,10 @@ export default function RapidScanWorkstation({
               </p>
             </div>
             <button
-              className="min-h-12 rounded-md border border-neutral-300 px-4 font-semibold text-neutral-700"
+              className="min-h-12 rounded-md border border-neutral-300 px-4 font-semibold text-neutral-700 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-400"
+              disabled={!mode}
               onClick={() => {
+                if (!mode) return;
                 setCameraError(null);
                 if (!scanning) lastScanRef.current = "";
                 setScanning((current) => !current);
@@ -395,6 +397,11 @@ export default function RapidScanWorkstation({
               {scanning ? "Stop Scan" : "Start Scan"}
             </button>
           </div>
+          {!mode ? (
+            <p className="mt-3 text-sm font-semibold text-amber-900" role="status">
+              Select Morning Release or Evening Return before starting the camera.
+            </p>
+          ) : null}
           {cameraError ? <p className="mt-3 text-sm font-semibold text-brand" role="status">{cameraError}</p> : null}
           {scanning ? (
             <video
