@@ -12,11 +12,15 @@ import type {
   RapidScanStudent,
   RapidScanTransitionResult
 } from "@/lib/devices/types";
-import { requiresSoftwareQrFallback } from "@/lib/qr/decode-strategy";
+import {
+  requiresSoftwareQrFallback,
+  runBoundedNativeQrAttempt
+} from "@/lib/qr/decode-strategy";
 
 const modeStorageKey = "bdm-rapid-scan-mode";
 const unavailableMessage = "No matching student is available in your access scope.";
 const decodeIntervalMs = 250;
+const nativeDetectTimeoutMs = 750;
 const maximumDecodeDimension = 960;
 
 function normalize(value: string) {
@@ -285,20 +289,22 @@ export default function RapidScanWorkstation({
                 inversionAttempts: "dontInvert"
               })?.data ?? "";
             } else if (detector) {
-              try {
-                const barcodes = await detector.detect(video);
-                decodedValue = barcodes[0]?.rawValue ?? "";
-                if (decodedValue) {
-                  consecutiveNativeEmptyResults = 0;
-                } else {
-                  consecutiveNativeEmptyResults += 1;
-                  useSoftwareFallback = requiresSoftwareQrFallback({
-                    nativeAvailable: true,
-                    nativeQrSupported,
-                    consecutiveNativeEmptyResults
-                  });
-                }
-              } catch {
+              const nativeOutcome = await runBoundedNativeQrAttempt(
+                detector.detect(video).then((barcodes) => barcodes[0]?.rawValue ?? ""),
+                nativeDetectTimeoutMs
+              );
+
+              if (nativeOutcome.status === "decoded") {
+                decodedValue = nativeOutcome.value;
+                consecutiveNativeEmptyResults = 0;
+              } else if (nativeOutcome.status === "empty") {
+                consecutiveNativeEmptyResults += 1;
+                useSoftwareFallback = requiresSoftwareQrFallback({
+                  nativeAvailable: true,
+                  nativeQrSupported,
+                  consecutiveNativeEmptyResults
+                });
+              } else {
                 useSoftwareFallback = true;
               }
             }

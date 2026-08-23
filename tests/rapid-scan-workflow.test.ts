@@ -87,9 +87,17 @@ test("native empty results and exceptions switch to the same software path", asy
   const cameraEnd = workstation.indexOf("}, [scanning]);", cameraStart);
   const camera = workstation.slice(cameraStart, cameraEnd);
 
+  assert.match(workstation, /nativeDetectTimeoutMs = 750/);
+  assert.match(camera, /runBoundedNativeQrAttempt\(/);
+  assert.match(camera, /detector\.detect\(video\)\.then/);
+  assert.match(camera, /nativeDetectTimeoutMs/);
+  assert.match(camera, /nativeOutcome\.status === "decoded"[\s\S]*handleDecodedValue\(decodedValue\)/);
+  assert.match(camera, /nativeOutcome\.status === "empty"[\s\S]*consecutiveNativeEmptyResults \+= 1/);
   assert.match(camera, /consecutiveNativeEmptyResults \+= 1/);
   assert.match(camera, /requiresSoftwareQrFallback\(\{[\s\S]*consecutiveNativeEmptyResults/);
-  assert.match(camera, /await detector\.detect\(video\)[\s\S]*catch \{[\s\S]*useSoftwareFallback = true/);
+  assert.match(camera, /else \{[\s\S]*useSoftwareFallback = true/);
+  assert.match(camera, /if \(useSoftwareFallback\)[\s\S]*else if \(detector\)/);
+  assert.match(camera, /if \(!cancelled\) animationFrame = window\.requestAnimationFrame\(scan\)/);
   assert.doesNotMatch(camera, /requestSubmit|scanReturnDeviceAction|rapidScanTransitionAction|runTransition/);
 });
 
