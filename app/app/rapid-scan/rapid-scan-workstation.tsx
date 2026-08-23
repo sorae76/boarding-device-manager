@@ -1,6 +1,7 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import jsQR from "jsqr";
 
 import { rapidScanTransitionAction } from "@/lib/devices/actions";
 import { deviceTypeLabels, statusLabels } from "@/lib/devices/format";
@@ -11,9 +12,12 @@ import type {
   RapidScanStudent,
   RapidScanTransitionResult
 } from "@/lib/devices/types";
+import { requiresSoftwareQrFallback } from "@/lib/qr/decode-strategy";
 
 const modeStorageKey = "bdm-rapid-scan-mode";
 const unavailableMessage = "No matching student is available in your access scope.";
+const decodeIntervalMs = 250;
+const maximumDecodeDimension = 960;
 
 function normalize(value: string) {
   return value.trim().toLocaleLowerCase().replace(/\s+/g, " ");
@@ -37,6 +41,11 @@ type DetectedBarcode = {
 
 type BarcodeDetectorLike = {
   detect(video: HTMLVideoElement): Promise<DetectedBarcode[]>;
+};
+
+type BarcodeDetectorConstructor = {
+  new (options: { formats: string[] }): BarcodeDetectorLike;
+  getSupportedFormats?: () => Promise<string[]>;
 };
 
 type ScannedDeviceMatch = {
@@ -163,18 +172,30 @@ export default function RapidScanWorkstation({
 
     let cancelled = false;
     let animationFrame = 0;
+    let decodeInFlight = false;
+    let lastDecodeAt = 0;
+    let canvas: HTMLCanvasElement | null = null;
 
     async function startCamera() {
       try {
         const Detector = (window as unknown as {
-          BarcodeDetector?: new (options: { formats: string[] }) => BarcodeDetectorLike;
+          BarcodeDetector?: BarcodeDetectorConstructor;
         }).BarcodeDetector;
 
-        if (!Detector) {
-          setCameraError("This browser does not support camera QR scanning. Use manual search.");
-          setScanning(false);
-          return;
+        let nativeQrSupported: boolean | null = null;
+        if (Detector?.getSupportedFormats) {
+          try {
+            nativeQrSupported = (await Detector.getSupportedFormats()).includes("qr_code");
+          } catch {
+            nativeQrSupported = null;
+          }
         }
+
+        let useSoftwareFallback = requiresSoftwareQrFallback({
+          nativeAvailable: Boolean(Detector),
+          nativeQrSupported,
+          consecutiveNativeEmptyResults: 0
+        });
 
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment" },
@@ -192,35 +213,105 @@ export default function RapidScanWorkstation({
           await videoRef.current.play();
         }
 
-        const detector = new Detector({ formats: ["qr_code"] });
-        const scan = async () => {
-          if (cancelled || !videoRef.current) return;
+        let detector: BarcodeDetectorLike | null = null;
+        if (!useSoftwareFallback && Detector) {
+          try {
+            detector = new Detector({ formats: ["qr_code"] });
+          } catch {
+            useSoftwareFallback = true;
+          }
+        }
+
+        let consecutiveNativeEmptyResults = 0;
+
+        function handleDecodedValue(rawValue: string) {
+          const parsedValue = devicePassLookup(rawValue);
+          if (!parsedValue || normalize(parsedValue) === normalize(lastScanRef.current)) return;
+
+          lastScanRef.current = parsedValue;
+          const match = resolveScannedDevice(residenceStudentsRef.current, parsedValue);
+
+          if (match) {
+            setSelectedStudentId(match.student.id);
+            setQuery(studentName(match.student));
+            setScannedDeviceId(match.device.id);
+            setSearchMessage("Scanned device found. Choose an explicit device action below.");
+            setFeedback(null);
+          } else {
+            setSelectedStudentId(null);
+            setScannedDeviceId(null);
+            setQuery("");
+            setSearchMessage(unavailableMessage);
+          }
+        }
+
+        const scan = async (timestamp: number) => {
+          const video = videoRef.current;
+          if (cancelled || !video) return;
+
+          const frameReady =
+            video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+            video.videoWidth > 0 &&
+            video.videoHeight > 0;
+
+          if (
+            !frameReady ||
+            decodeInFlight ||
+            timestamp - lastDecodeAt < decodeIntervalMs
+          ) {
+            animationFrame = window.requestAnimationFrame(scan);
+            return;
+          }
+
+          lastDecodeAt = timestamp;
+          decodeInFlight = true;
 
           try {
-            const barcodes = await detector.detect(videoRef.current);
-            const parsedValue = devicePassLookup(barcodes[0]?.rawValue ?? "");
+            let decodedValue = "";
 
-            if (parsedValue && normalize(parsedValue) !== normalize(lastScanRef.current)) {
-              lastScanRef.current = parsedValue;
-              const match = resolveScannedDevice(residenceStudentsRef.current, parsedValue);
+            if (useSoftwareFallback) {
+              canvas ??= document.createElement("canvas");
+              const scale = Math.min(1, maximumDecodeDimension / Math.max(video.videoWidth, video.videoHeight));
+              const width = Math.max(1, Math.round(video.videoWidth * scale));
+              const height = Math.max(1, Math.round(video.videoHeight * scale));
+              if (canvas.width !== width) canvas.width = width;
+              if (canvas.height !== height) canvas.height = height;
 
-              if (match) {
-                setSelectedStudentId(match.student.id);
-                setQuery(studentName(match.student));
-                setScannedDeviceId(match.device.id);
-                setSearchMessage("Scanned device found. Choose an explicit device action below.");
-                setFeedback(null);
-              } else {
-                setSelectedStudentId(null);
-                setScannedDeviceId(null);
-                setQuery("");
-                setSearchMessage(unavailableMessage);
+              const context = canvas.getContext("2d", { willReadFrequently: true });
+              if (!context) throw new Error("Camera frame decoding is unavailable.");
+              context.drawImage(video, 0, 0, width, height);
+              const imageData = context.getImageData(0, 0, width, height);
+              decodedValue = jsQR(imageData.data, width, height, {
+                inversionAttempts: "dontInvert"
+              })?.data ?? "";
+            } else if (detector) {
+              try {
+                const barcodes = await detector.detect(video);
+                decodedValue = barcodes[0]?.rawValue ?? "";
+                if (decodedValue) {
+                  consecutiveNativeEmptyResults = 0;
+                } else {
+                  consecutiveNativeEmptyResults += 1;
+                  useSoftwareFallback = requiresSoftwareQrFallback({
+                    nativeAvailable: true,
+                    nativeQrSupported,
+                    consecutiveNativeEmptyResults
+                  });
+                }
+              } catch {
+                useSoftwareFallback = true;
               }
             }
-          } catch {
-            setCameraError("Camera scanning could not continue. Use manual search.");
-            setScanning(false);
+
+            if (!cancelled && decodedValue) handleDecodedValue(decodedValue);
+          } catch (error) {
+            if (!cancelled) {
+              setCameraError(error instanceof Error ? error.message : "Camera scanning could not continue. Use manual search.");
+              setScanning(false);
+            }
             return;
+          } finally {
+            decodeInFlight = false;
           }
 
           if (!cancelled) animationFrame = window.requestAnimationFrame(scan);
@@ -242,6 +333,7 @@ export default function RapidScanWorkstation({
       window.cancelAnimationFrame(animationFrame);
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
+      canvas = null;
     };
   }, [scanning]);
 

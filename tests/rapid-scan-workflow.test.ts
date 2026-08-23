@@ -52,6 +52,8 @@ test("Rapid Scan camera uses the local QR camera foundation and cleans it up saf
 
   assert.match(workstation, /BarcodeDetector/);
   assert.match(workstation, /formats: \["qr_code"\]/);
+  assert.match(workstation, /getSupportedFormats/);
+  assert.match(workstation, /includes\("qr_code"\)/);
   assert.match(workstation, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(workstation, /video: \{ facingMode: "environment" \}/);
   assert.match(workstation, /audio: false/);
@@ -59,8 +61,36 @@ test("Rapid Scan camera uses the local QR camera foundation and cleans it up saf
   assert.match(workstation, /requestAnimationFrame\(scan\)/);
   assert.match(workstation, /cancelAnimationFrame\(animationFrame\)/);
   assert.match(workstation, /getTracks\(\)\.forEach\(\(track\) => track\.stop\(\)\)/);
-  assert.match(workstation, /catch \{[\s\S]*Camera scanning could not continue[\s\S]*setScanning\(false\)/);
-  assert.match(workstation, /does not support camera QR scanning\. Use manual search/);
+  assert.match(workstation, /canvas = null/);
+});
+
+test("camera decoding uses ready throttled frames and software fallback without overlapping", async () => {
+  const workstation = await read("../app/app/rapid-scan/rapid-scan-workstation.tsx");
+
+  assert.match(workstation, /import jsQR from "jsqr"/);
+  assert.match(workstation, /readyState >= HTMLMediaElement\.HAVE_CURRENT_DATA/);
+  assert.match(workstation, /video\.videoWidth > 0/);
+  assert.match(workstation, /video\.videoHeight > 0/);
+  assert.match(workstation, /decodeIntervalMs = 250/);
+  assert.match(workstation, /timestamp - lastDecodeAt < decodeIntervalMs/);
+  assert.match(workstation, /decodeInFlight/);
+  assert.match(workstation, /maximumDecodeDimension = 960/);
+  assert.match(workstation, /document\.createElement\("canvas"\)/);
+  assert.match(workstation, /context\.drawImage\(video/);
+  assert.match(workstation, /context\.getImageData/);
+  assert.match(workstation, /jsQR\(imageData\.data, width, height/);
+});
+
+test("native empty results and exceptions switch to the same software path", async () => {
+  const workstation = await read("../app/app/rapid-scan/rapid-scan-workstation.tsx");
+  const cameraStart = workstation.indexOf("async function startCamera");
+  const cameraEnd = workstation.indexOf("}, [scanning]);", cameraStart);
+  const camera = workstation.slice(cameraStart, cameraEnd);
+
+  assert.match(camera, /consecutiveNativeEmptyResults \+= 1/);
+  assert.match(camera, /requiresSoftwareQrFallback\(\{[\s\S]*consecutiveNativeEmptyResults/);
+  assert.match(camera, /await detector\.detect\(video\)[\s\S]*catch \{[\s\S]*useSoftwareFallback = true/);
+  assert.doesNotMatch(camera, /requestSubmit|scanReturnDeviceAction|rapidScanTransitionAction|runTransition/);
 });
 
 test("camera scan start is gated until an explicit operating mode is selected", async () => {
@@ -104,7 +134,7 @@ test("camera scans update UI only and never enter the custody mutation path", as
 
   assert.doesNotMatch(camera, /requestSubmit|scanReturnDeviceAction|rapidScanTransitionAction|runTransition/);
   assert.match(camera, /lastScanRef\.current/);
-  assert.match(camera, /normalize\(parsedValue\) !== normalize\(lastScanRef\.current\)/);
+  assert.match(camera, /normalize\(parsedValue\) === normalize\(lastScanRef\.current\)\) return/);
   assert.match(camera, /setSearchMessage\(unavailableMessage\)/);
   assert.match(camera, /setSelectedStudentId\(null\)/);
   assert.match(workstation, /onClick=\{\(\) => runTransition\(device\.id\)\}/);
