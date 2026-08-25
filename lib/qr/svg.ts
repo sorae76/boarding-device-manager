@@ -152,7 +152,7 @@ function addFunctionPatterns(matrix: ReturnType<typeof makeMatrix>) {
     setModule(matrix, i, 6, i % 2 === 0);
   }
 
-  setModule(matrix, 8, SIZE - 8, true);
+  setModule(matrix, SIZE - 8, 8, true);
 
   for (let i = 0; i < 9; i += 1) {
     if (i !== 6) {
@@ -209,14 +209,14 @@ function bchFormatBits(format: number) {
 function addFormatBits(matrix: ReturnType<typeof makeMatrix>) {
   const bits = bchFormatBits(0b01000);
 
-  for (let i = 0; i <= 5; i += 1) setModule(matrix, 8, i, ((bits >>> i) & 1) !== 0);
-  setModule(matrix, 8, 7, ((bits >>> 6) & 1) !== 0);
+  for (let i = 0; i <= 5; i += 1) setModule(matrix, i, 8, ((bits >>> i) & 1) !== 0);
+  setModule(matrix, 7, 8, ((bits >>> 6) & 1) !== 0);
   setModule(matrix, 8, 8, ((bits >>> 7) & 1) !== 0);
-  setModule(matrix, 7, 8, ((bits >>> 8) & 1) !== 0);
-  for (let i = 9; i < 15; i += 1) setModule(matrix, 14 - i, 8, ((bits >>> i) & 1) !== 0);
+  setModule(matrix, 8, 7, ((bits >>> 8) & 1) !== 0);
+  for (let i = 9; i < 15; i += 1) setModule(matrix, 8, 14 - i, ((bits >>> i) & 1) !== 0);
 
-  for (let i = 0; i < 8; i += 1) setModule(matrix, SIZE - 1 - i, 8, ((bits >>> i) & 1) !== 0);
-  for (let i = 8; i < 15; i += 1) setModule(matrix, 8, SIZE - 15 + i, ((bits >>> i) & 1) !== 0);
+  for (let i = 0; i < 8; i += 1) setModule(matrix, 8, SIZE - 1 - i, ((bits >>> i) & 1) !== 0);
+  for (let i = 8; i < 15; i += 1) setModule(matrix, SIZE - 15 + i, 8, ((bits >>> i) & 1) !== 0);
 }
 
 export function createQrSvg(value: string, moduleSize = 8) {
