@@ -27,7 +27,7 @@ test("student-centric search supports student identity and device fallback", asy
   }
   assert.match(workstation, /devicePassLookup/);
   assert.match(workstation, /setSelectedStudentId\(student\.id\)/);
-  assert.match(workstation, /selectedStudent\.devices\.map/);
+  assert.match(workstation, /contextDevices\.map/);
   assert.match(workstation, /No matching student is available in your access scope/);
 });
 
@@ -148,6 +148,73 @@ test("camera scans update UI only and never enter the custody mutation path", as
   assert.match(workstation, /onClick=\{\(\) => runTransition\(device\.id\)\}/);
   assert.match(workstation, /rapidScanTransitionAction\(\{ deviceId, operation: mode \}\)/);
   assert.match(workstation, /mode === "release" \? "Release device" : "Return device"/);
+});
+
+test("successful camera matches stop scanning and show explicit custody-safe feedback", async () => {
+  const workstation = await read("../app/app/rapid-scan/rapid-scan-workstation.tsx");
+  const handlerStart = workstation.indexOf("function handleDecodedValue");
+  const handlerEnd = workstation.indexOf("const scan = async", handlerStart);
+  const handler = workstation.slice(handlerStart, handlerEnd);
+  const successStart = handler.indexOf("if (match)");
+  const unmatchedStart = handler.indexOf("} else {", successStart);
+  const success = handler.slice(successStart, unmatchedStart);
+  const unmatched = handler.slice(unmatchedStart);
+
+  assert.match(success, /setSelectedStudentId\(match\.student\.id\)/);
+  assert.match(success, /setScannedDeviceId\(match\.device\.id\)/);
+  assert.match(success, /QR scanned — \$\{match\.device\.manufacturer\} \$\{match\.device\.model\} identified/);
+  assert.match(success, /Custody is unchanged; choose Return or Release explicitly/);
+  assert.match(success, /setScanning\(false\)/);
+  assert.doesNotMatch(unmatched, /setScanning\(false\)/);
+  assert.doesNotMatch(handler, /requestSubmit|scanReturnDeviceAction|rapidScanTransitionAction|runTransition/);
+});
+
+test("QR context filters Student Context to the scanned device while manual context keeps all devices", async () => {
+  const workstation = await read("../app/app/rapid-scan/rapid-scan-workstation.tsx");
+
+  assert.match(
+    workstation,
+    /const contextDevices = selectedStudent[\s\S]*scannedDeviceId[\s\S]*selectedStudent\.devices\.filter\(\(device\) => device\.id === scannedDeviceId\)[\s\S]*: selectedStudent\.devices/
+  );
+  assert.match(workstation, /contextDevices\.map\(\(device\) =>/);
+  assert.doesNotMatch(workstation, /selectedStudent\.devices\.map\(\(device\) =>/);
+  assert.match(workstation, /contextDevices\.length === 0/);
+});
+
+test("scan focus state resets on manual workflows and new scan sessions", async () => {
+  const workstation = await read("../app/app/rapid-scan/rapid-scan-workstation.tsx");
+  const selectStudentStart = workstation.indexOf("function selectStudent");
+  const submitSearchStart = workstation.indexOf("function submitSearch", selectStudentStart);
+  const selectStudent = workstation.slice(selectStudentStart, submitSearchStart);
+  const nextStudentStart = workstation.indexOf("function nextStudent");
+  const runTransitionStart = workstation.indexOf("function runTransition", nextStudentStart);
+  const nextStudent = workstation.slice(nextStudentStart, runTransitionStart);
+  const residenceStart = workstation.indexOf("setResidenceFilter(event.target.value)");
+  const residenceReset = workstation.slice(residenceStart, residenceStart + 250);
+  const queryStart = workstation.indexOf("setQuery(event.target.value)");
+  const queryReset = workstation.slice(queryStart, queryStart + 180);
+  const scanControlStart = workstation.indexOf("Camera QR fallback");
+  const scanControlEnd = workstation.indexOf("<form", scanControlStart);
+  const scanControl = workstation.slice(scanControlStart, scanControlEnd);
+
+  assert.match(selectStudent, /setScannedDeviceId\(null\)/);
+  assert.match(nextStudent, /setScannedDeviceId\(null\)/);
+  assert.match(residenceReset, /setScannedDeviceId\(null\)/);
+  assert.match(queryReset, /setScannedDeviceId\(null\)/);
+  assert.match(scanControl, /if \(!scanning\) \{[\s\S]*setScannedDeviceId\(null\)[\s\S]*setSearchMessage\(""\)[\s\S]*setFeedback\(null\)[\s\S]*setScanning\(\(current\) => !current\)/);
+});
+
+test("successful scan scrolls only the scanned result with reduced-motion handling", async () => {
+  const workstation = await read("../app/app/rapid-scan/rapid-scan-workstation.tsx");
+  const scrollEffectStart = workstation.indexOf("if (!scannedDeviceId) return;");
+  const scrollEffectEnd = workstation.indexOf("}, [scannedDeviceId]);", scrollEffectStart);
+  const scrollEffect = workstation.slice(scrollEffectStart, scrollEffectEnd);
+
+  assert.match(workstation, /const scannedResultRef = useRef<HTMLElement>\(null\)/);
+  assert.match(scrollEffect, /prefers-reduced-motion: reduce/);
+  assert.match(scrollEffect, /\? "auto"[\s\S]*: "smooth"/);
+  assert.match(scrollEffect, /scannedResultRef\.current\?\.scrollIntoView\(\{ behavior, block: "center" \}\)/);
+  assert.match(workstation, /ref=\{scannedDeviceId === device\.id \? scannedResultRef : undefined\}/);
 });
 
 test("Rapid Scan action reuses the atomic RPC wrapper and returns safe outcomes", async () => {

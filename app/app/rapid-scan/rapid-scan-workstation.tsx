@@ -133,6 +133,7 @@ export default function RapidScanWorkstation({
   const [isPending, startTransition] = useTransition();
   const searchRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const scannedResultRef = useRef<HTMLElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const lastScanRef = useRef("");
   const residenceStudentsRef = useRef<RapidScanStudent[]>([]);
@@ -239,8 +240,11 @@ export default function RapidScanWorkstation({
             setSelectedStudentId(match.student.id);
             setQuery(studentName(match.student));
             setScannedDeviceId(match.device.id);
-            setSearchMessage("Scanned device found. Choose an explicit device action below.");
+            setSearchMessage(
+              `QR scanned — ${match.device.manufacturer} ${match.device.model} identified. Custody is unchanged; choose Return or Release explicitly.`
+            );
             setFeedback(null);
+            setScanning(false);
           } else {
             setSelectedStudentId(null);
             setScannedDeviceId(null);
@@ -343,6 +347,15 @@ export default function RapidScanWorkstation({
     };
   }, [scanning]);
 
+  useEffect(() => {
+    if (!scannedDeviceId) return;
+
+    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "auto"
+      : "smooth";
+    scannedResultRef.current?.scrollIntoView({ behavior, block: "center" });
+  }, [scannedDeviceId]);
+
   const matches = useMemo(
     () =>
       deferredQuery.trim()
@@ -351,10 +364,13 @@ export default function RapidScanWorkstation({
     [deferredQuery, residenceStudents]
   );
   const selectedStudent = students.find((student) => student.id === selectedStudentId) ?? null;
+  const contextDevices = selectedStudent
+    ? scannedDeviceId
+      ? selectedStudent.devices.filter((device) => device.id === scannedDeviceId)
+      : selectedStudent.devices
+    : [];
   const requiredStatus = eligibleStatus(mode);
-  const remainingEligible = selectedStudent
-    ? selectedStudent.devices.filter((device) => device.status === requiredStatus).length
-    : 0;
+  const remainingEligible = contextDevices.filter((device) => device.status === requiredStatus).length;
 
   function chooseMode(nextMode: RapidScanMode) {
     setMode(nextMode);
@@ -487,7 +503,12 @@ export default function RapidScanWorkstation({
               onClick={() => {
                 if (!mode) return;
                 setCameraError(null);
-                if (!scanning) lastScanRef.current = "";
+                if (!scanning) {
+                  lastScanRef.current = "";
+                  setScannedDeviceId(null);
+                  setSearchMessage("");
+                  setFeedback(null);
+                }
                 setScanning((current) => !current);
               }}
               type="button"
@@ -590,7 +611,7 @@ export default function RapidScanWorkstation({
           ) : null}
 
           <div className="mt-4 grid gap-3">
-            {selectedStudent.devices.map((device) => {
+            {contextDevices.map((device) => {
               const eligible = Boolean(mode && device.status === requiredStatus);
               const pending = pendingDeviceId === device.id;
               return (
@@ -599,6 +620,7 @@ export default function RapidScanWorkstation({
                     scannedDeviceId === device.id ? "border-brand bg-brand-soft" : "border-neutral-200"
                   }`}
                   key={device.id}
+                  ref={scannedDeviceId === device.id ? scannedResultRef : undefined}
                 >
                   <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                     <div>
@@ -629,7 +651,7 @@ export default function RapidScanWorkstation({
                 </article>
               );
             })}
-            {selectedStudent.devices.length === 0 ? (
+            {contextDevices.length === 0 ? (
               <p className="rounded-md bg-neutral-100 p-4 text-sm text-neutral-700">No registered devices are available for this student.</p>
             ) : null}
           </div>
