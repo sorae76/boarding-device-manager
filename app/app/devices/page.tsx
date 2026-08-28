@@ -142,9 +142,15 @@ export default async function DeviceRegistryPage({ searchParams }: DeviceRegistr
           </thead>
           <tbody className="divide-y divide-neutral-200">
             {devices.map((device) => (
-              <tr key={device.id} className="hover:bg-neutral-50">
+              <tr
+                key={device.id}
+                className="relative cursor-pointer hover:bg-neutral-50 focus-within:bg-brand-soft"
+              >
                 <td className="px-4 py-3">
-                  <Link className="font-semibold text-brand" href={`/app/devices/${device.id}`}>
+                  <Link
+                    className="font-semibold text-brand outline-none after:absolute after:inset-0 after:content-['']"
+                    href={`/app/devices/${device.id}`}
+                  >
                     {deviceName(device)}
                   </Link>
                   <p className="mt-1 text-xs text-neutral-500">

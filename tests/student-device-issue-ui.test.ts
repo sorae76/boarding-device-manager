@@ -89,3 +89,29 @@ test("device registry keeps registration and issue queues separate", async () =>
   const workflowGate = access.slice(access.indexOf("export function canAccessDeviceWorkflows"), access.indexOf("export function canAccessDeviceDashboard"));
   assert.doesNotMatch(workflowGate, /dorm_supervisor/);
 });
+
+test("device registry exposes one native full-row Device Detail link without changing workflows", async () => {
+  const page = await read("../app/app/devices/page.tsx");
+  const rowStart = page.indexOf("{devices.map((device) => (");
+  const rowEnd = page.indexOf("{devices.length === 0", rowStart);
+  const row = page.slice(rowStart, rowEnd);
+
+  assert.match(row, /<tr[\s\S]*className="relative cursor-pointer hover:bg-neutral-50 focus-within:bg-brand-soft"/);
+  assert.match(row, /<Link[\s\S]*className="font-semibold text-brand outline-none after:absolute after:inset-0 after:content-\[''\]"[\s\S]*href=\{`\/app\/devices\/\$\{device\.id\}`\}[\s\S]*\{deviceName\(device\)\}[\s\S]*<\/Link>/);
+  assert.equal(Array.from(row.matchAll(/href=\{`\/app\/devices\/\$\{device\.id\}`\}/g)).length, 1);
+  assert.doesNotMatch(row, /<Link[^>]*>[\s\S]*<tr/);
+  assert.doesNotMatch(row, /<form|transitionDeviceLifecycleAction|scanReturnDeviceAction|onClick=/);
+  assert.doesNotMatch(page, /"use client"|useRouter|router\.push/);
+  assert.doesNotMatch(page, /href=\{`\/device-pass\/\$\{device\.qr_token\}`\}/);
+
+  for (const control of [
+    "Pending registrations",
+    "Pending issue requests",
+    "Download template",
+    "Import CSV",
+    "Export CSV",
+    "Add device"
+  ]) {
+    assert.match(page, new RegExp(control));
+  }
+});
