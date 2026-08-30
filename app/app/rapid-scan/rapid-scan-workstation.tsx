@@ -373,6 +373,7 @@ export default function RapidScanWorkstation({
   const remainingEligible = contextDevices.filter((device) => device.status === requiredStatus).length;
 
   function chooseMode(nextMode: RapidScanMode) {
+    if (scanning) return;
     setMode(nextMode);
     window.sessionStorage.setItem(modeStorageKey, nextMode);
     setFeedback(null);
@@ -450,11 +451,12 @@ export default function RapidScanWorkstation({
             ] as const).map(([value, label, description]) => (
               <button
                 aria-pressed={mode === value}
-                className={`min-h-14 rounded-md border px-4 py-3 text-left ${
+                className={`min-h-14 rounded-md border px-4 py-3 text-left disabled:cursor-not-allowed disabled:opacity-70 ${
                   mode === value
                     ? "border-brand bg-brand-soft text-brand-dark"
                     : "border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"
                 }`}
+                disabled={scanning}
                 key={value}
                 onClick={() => chooseMode(value)}
                 type="button"
@@ -464,6 +466,11 @@ export default function RapidScanWorkstation({
               </button>
             ))}
           </div>
+          {scanning ? (
+            <p className="mt-3 text-sm font-medium text-neutral-600" role="status">
+              Stop scanning before changing the operating mode.
+            </p>
+          ) : null}
         </fieldset>
       </section>
 

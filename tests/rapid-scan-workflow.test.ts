@@ -115,6 +115,46 @@ test("camera scan start is gated until an explicit operating mode is selected", 
   assert.match(workstation, /rapidScanTransitionAction\(\{ deviceId, operation: mode \}\)/);
 });
 
+test("operating mode is locked only while camera scanning is active", async () => {
+  const workstation = await read("../app/app/rapid-scan/rapid-scan-workstation.tsx");
+  const chooseModeStart = workstation.indexOf("function chooseMode");
+  const selectStudentStart = workstation.indexOf("function selectStudent", chooseModeStart);
+  const chooseMode = workstation.slice(chooseModeStart, selectStudentStart);
+  const modeControlStart = workstation.indexOf("1. Select operating mode");
+  const modeControlEnd = workstation.indexOf("2. Find student", modeControlStart);
+  const modeControl = workstation.slice(modeControlStart, modeControlEnd);
+  const guardIndex = chooseMode.indexOf("if (scanning) return;");
+
+  assert.match(modeControl, /aria-pressed=\{mode === value\}/);
+  assert.match(modeControl, /disabled=\{scanning\}/);
+  assert.match(modeControl, /disabled:cursor-not-allowed/);
+  assert.match(modeControl, /disabled:opacity-70/);
+  assert.match(modeControl, /Stop scanning before changing the operating mode\./);
+  assert.ok(guardIndex >= 0);
+  assert.ok(guardIndex < chooseMode.indexOf("setMode(nextMode)"));
+  assert.ok(guardIndex < chooseMode.indexOf("sessionStorage.setItem"));
+  assert.ok(guardIndex < chooseMode.indexOf("setFeedback(null)"));
+  assert.doesNotMatch(chooseMode, /rapidScanTransitionAction|runTransition|setScanning/);
+});
+
+test("mode lock preserves every existing scan stop and explicit transition path", async () => {
+  const workstation = await read("../app/app/rapid-scan/rapid-scan-workstation.tsx");
+  const cameraStart = workstation.indexOf("async function startCamera");
+  const cameraEnd = workstation.indexOf("}, [scanning]);", cameraStart);
+  const camera = workstation.slice(cameraStart, cameraEnd);
+  const scanControlStart = workstation.indexOf("Camera QR fallback");
+  const scanControlEnd = workstation.indexOf("<form", scanControlStart);
+  const scanControl = workstation.slice(scanControlStart, scanControlEnd);
+
+  assert.match(scanControl, /disabled=\{!mode\}/);
+  assert.match(scanControl, /setScanning\(\(current\) => !current\)/);
+  assert.match(camera, /if \(match\)[\s\S]*setScanning\(false\)/);
+  assert.ok(Array.from(camera.matchAll(/setScanning\(false\)/g)).length >= 3);
+  assert.doesNotMatch(camera, /rapidScanTransitionAction|runTransition|requestSubmit/);
+  assert.match(workstation, /onClick=\{\(\) => runTransition\(device\.id\)\}/);
+  assert.match(workstation, /rapidScanTransitionAction\(\{ deviceId, operation: mode \}\)/);
+});
+
 test("camera QR resolution is device-only, exact, residence-filtered, and selects the owner", async () => {
   const workstation = await read("../app/app/rapid-scan/rapid-scan-workstation.tsx");
   const resolverStart = workstation.indexOf("function resolveScannedDevice");
