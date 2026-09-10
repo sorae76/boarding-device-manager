@@ -47,3 +47,48 @@
 - This gate record uses the requested default path and the existing Markdown completion-record style.
 - Closure changes only this document. The production SHA above remains the implementation baseline; a subsequent docs-only closure commit is a separate record commit.
 - Baseline v2 design and Gate 1 implementation were not performed as part of this closure.
+
+## Schedule G1-A
+
+- Gate: Schedule G1-A — Schedule Write Boundary
+- status: CLOSED
+- closed_at: 2026-09-09T18:18:34-04:00
+- verdict: CLOSED / PASS
+- implementation commit: `c999d091d9e6545e91d0e7bead86d975de829566`
+- implementation parent: `9548a9801a14accda78fdfaa4fbef31507b8357f`
+- Production project: `dormdevice-db` (`haakvegrtyeyedqidgte`), status `ACTIVE_HEALTHY` (USER-ATTESTED)
+- Production migration application: `20260907190930_g1a_schedule_write_boundary.sql` APPLIED (USER-ATTESTED)
+- production schedule test data: none created (USER-ATTESTED)
+- mismatch/blocker: none identified within this gate's scope
+
+### Verification Matrix
+
+| Item | Status | Evidence |
+| --- | --- | --- |
+| Repository, branch, and implementation HEAD | VERIFIED | Repository root is `C:/Users/sorae/Documents/Device Manager`; branch is `master`; local HEAD is `c999d091d9e6545e91d0e7bead86d975de829566`. |
+| Live remote master | VERIFIED | `git ls-remote origin refs/heads/master` returned `c999d091d9e6545e91d0e7bead86d975de829566`; cached origin/master matched and ahead/behind was `0/0` before this record. |
+| Implementation commit scope | VERIFIED | Commit parent is `9548a9801a14accda78fdfaa4fbef31507b8357f`; the commit contains only the G1-A forward migration, focused static test, and disposable PostgreSQL test harness. |
+| Independent review | USER-ATTESTED | User reports the corrected G1-A implementation passed independent re-review before controlled commit and push. |
+| Focused source contract | VERIFIED | `node --experimental-strip-types --test tests/device-schedule-write-boundary.test.ts`: 7 passed, 0 failed. |
+| Clean migration replay | VERIFIED | All 18 migrations replayed successfully from a clean disposable PostgreSQL 17 database, including the G1-A forward migration. |
+| Runtime and genuine concurrency | VERIFIED | Disposable PostgreSQL runtime passed atomicity, authorization, timeline, idempotency, privilege, ownership, immutable-trigger, and custody-isolation checks; genuine simultaneous-session cases A-F passed. |
+| Full repository regression | VERIFIED | `node --experimental-strip-types --test tests/*.test.ts`: 137 passed, 0 failed; TypeScript, lint, and production build passed. |
+| Production migration history and health | USER-ATTESTED | User reports project `haakvegrtyeyedqidgte` is `ACTIVE_HEALTHY` and the G1-A migration is present in Production migration history. |
+| Production schedule row counts | USER-ATTESTED | User reports `device_schedule_policies = 0` and `device_schedule_weekly_events = 0` after migration. |
+| Production G1-A schema and RPCs | USER-ATTESTED | User reports scope revisions, publications, publication ledger, and idempotency tables exist; publish and future-cancel RPCs exist. |
+| Production privileges and RLS | USER-ATTESTED | User reports authenticated direct policy/event INSERT and UPDATE are removed, authenticated SELECT and read RLS policies remain, mutation RLS policies are removed, and internal tables have no direct client privileges. |
+| Production RPC hardening and immutability | USER-ATTESTED | User reports publish/cancel are `SECURITY DEFINER`, owned by `postgres`, use `search_path=""`, grant EXECUTE only to authenticated, and all immutable triggers are present. |
+| Custody isolation | VERIFIED | The implementation commit changes no custody source or migration; static and disposable runtime checks confirmed schedule publication neither changes custody status nor creates custody events. |
+| No Production schedule test data | USER-ATTESTED | User explicitly reports that no throwaway schedule policy or weekly event data was created for closure. |
+
+### Deferred Production Runtime QA
+
+- A successful Production publish is intentionally deferred to Schedule G1-C, when the first controlled real schedule policy is created.
+- This is not a G1-A blocker: the DB boundary and genuine concurrency were validated in disposable PostgreSQL, Production migration/schema/privileges were audited, and creating throwaway Production schedule data would add unnecessary mutation.
+- The first controlled G1-C publication must verify the successful publish result and the existing deferred Production policy rendering QA without retroactively changing this gate's evidence classification.
+
+### Closure Scope
+
+- Schedule G1-A is CLOSED / PASS. Schedule G1-B is READY but was not started by this closure.
+- Previous CLOSED gates remain closed and are not reopened by this record.
+- Implementation Baseline v2, application code, migrations, RPCs, tests, UI, network work, and custody behavior are unchanged by this docs-only closure.
