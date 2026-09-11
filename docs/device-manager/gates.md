@@ -92,3 +92,17 @@
 - Schedule G1-A is CLOSED / PASS. Schedule G1-B is READY but was not started by this closure.
 - Previous CLOSED gates remain closed and are not reopened by this record.
 - Implementation Baseline v2, application code, migrations, RPCs, tests, UI, network work, and custody behavior are unchanged by this docs-only closure.
+
+## Joint Commercial Baseline Lock
+
+- Commercial Strategy Baseline v1.7: **LOCKED / PASS**
+  - path: `docs/device-manager/commercial-strategy-baseline-v1.7.md`
+  - lock commit SHA: `14fb6e8d8154b8d29fd6c394c3698a72fe1a744a`
+- Implementation Baseline v2.6: **LOCKED CONTROLLED AMENDMENT / PASS**
+  - path: `docs/device-manager/implementation-baseline-v2.6-commercial-amendment.md`
+  - base Implementation Baseline v2 ref: `bb5e9f0e6f522a8a3f364b2cd913e525fce3e683`
+  - lock commit SHA: `14fb6e8d8154b8d29fd6c394c3698a72fe1a744a`
+- Independent review: **BOTH BASELINES — READY TO LOCK** (USER-ATTESTED Claude independent final review).
+- O-C03: **RESOLVED by joint baseline lock**.
+- Schedule G1-A remains **CLOSED / PASS**; G1-B status is unchanged.
+- No technical Gate is reopened or closed, and no Network Gate status is changed by this record.
