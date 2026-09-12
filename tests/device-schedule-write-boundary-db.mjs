@@ -777,6 +777,11 @@ where n.nspname = 'public' and p.proname = 'publish_device_schedule';
     }
     pass("published snapshots, ledger, and idempotency records are immutable to owner DML");
 
+    if (process.argv.includes("--with-g1b")) {
+      const { runResolverDatabaseChecks } = await import("./device-schedule-resolver-db.mjs");
+      await runResolverDatabaseChecks({ psql, runPublish, cancelStatement, resultRow, ids, pass });
+    }
+
     const custodyAfter = snapshot().split("|").slice(-2).join("|");
     assert.equal(custodyAfter, custodyBefore);
     assert.equal(custodyAfter, "checked_out|0");
