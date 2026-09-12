@@ -106,3 +106,63 @@
 - O-C03: **RESOLVED by joint baseline lock**.
 - Schedule G1-A remains **CLOSED / PASS**; G1-B status is unchanged.
 - No technical Gate is reopened or closed, and no Network Gate status is changed by this record.
+
+## Schedule G1-B
+
+- Gate: Schedule G1-B — Deterministic Schedule Resolver / DST
+- status: CLOSED
+- verdict: CLOSED / PASS
+- implementation commit: `02082b02ac75a31f60c49343eb334c5eae92f8b0`
+- implementation parent: `e831865c91740bb3181f84aef4e9082f27d0135b`
+- independent review: PASS (`G1-B — INDEPENDENT REVIEW PASS`, USER-ATTESTED)
+- review artifact SHA-256: `485C634CF585CA348A5280B9BA041F63DA652A33EA74724D7F446B7BC76785D4`
+- mismatch/blocker: none identified within this gate's scope
+
+### Validation Evidence
+
+| Item | Status | Evidence |
+| --- | --- | --- |
+| Focused resolver tests | PASS | `node --experimental-strip-types --test tests/device-schedule-resolver.test.ts`: 43 passed, 0 failed, 0 skipped. |
+| Full repository tests | PASS | `node --experimental-strip-types --test tests/*.test.ts`: 180 passed, 0 failed, 0 skipped. |
+| TypeScript | PASS | `npm.cmd run typecheck -- --incremental false`. |
+| Lint | PASS | `npm.cmd run lint -- --no-cache`; no warnings or errors. |
+| Production build | PASS | `npm.cmd run build`. |
+| Clean migration replay | PASS | All 18 migrations replayed from a clean disposable PostgreSQL 17 database. |
+| G1-A runtime/concurrency | PASS | Disposable PostgreSQL runtime and genuine concurrency cases passed. |
+| G1-B runtime | PASS | Disposable PostgreSQL persisted resolver and replay checks passed. |
+| Custody isolation | PASS | Custody data remained unchanged. |
+| Incident isolation | PASS | No incident tables were created. |
+| Diff check | PASS | `git diff --check`. |
+
+### Architecture Evidence
+
+- The resolver is deterministic and pure.
+- A residence policy overrides the school policy.
+- An absent residence policy may fall back to the school policy.
+- An invalid residence policy returns `INVALID`; fallback cannot mask it.
+- Circular weekly rules pair each Return with the next Release and produce half-open restricted windows `[return, release)`.
+- Policy/publication cutovers and clipping are deterministic.
+- Publication timezone snapshots and DST boundaries resolve deterministically.
+- New York fold/gap fixtures pass.
+- Lord Howe non-one-hour transition fixtures pass.
+- `UNCONFIGURED` and `INVALID` fail closed.
+- Unknown historical assignments do not use current-residence backfill.
+- Canonical restricted-window identity and provenance are stable.
+- The resolver performs no custody mutation and creates no incident.
+
+### Deferred / Intentionally Outside G1-B
+
+- schedule authoring UI
+- allow exception UI/write path
+- Network
+- Detection
+- AI
+
+### Next Gate
+
+- Schedule G1-C — READY
+- scope:
+  - allow-only exceptions
+  - schedule authoring/write UI
+  - controlled first real Production policy rendering QA as already defined by the locked baseline
+- This closure does not start G1-C, touch Production, alter any Network Gate status, or reopen G1-A.
