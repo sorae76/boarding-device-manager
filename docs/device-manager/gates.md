@@ -166,3 +166,41 @@
   - schedule authoring/write UI
   - controlled first real Production policy rendering QA as already defined by the locked baseline
 - This closure does not start G1-C, touch Production, alter any Network Gate status, or reopen G1-A.
+
+## Schedule G1-C
+
+- Gate: Schedule G1-C — Schedule Authoring and Allow Exceptions
+- status: CLOSED
+- verdict: CLOSED / PASS
+- implementation commit: `19b71920e7e70e0c0c1a38a36569ddd0c9dbe154`
+- final independent re-review: PASS (`FINAL INDEPENDENT RE-REVIEW — PASS`)
+- implementation: validated, independently re-reviewed, committed, and pushed
+- mismatch/blocker: none identified within this gate's scope
+
+### Closure Evidence
+
+| Item | Status | Evidence |
+| --- | --- | --- |
+| Focused tests | PASS | 19/19 passed. |
+| Full repository regression | PASS | 199/199 passed. |
+| Disposable PostgreSQL | PASS | 20 migrations passed. |
+| Synthetic browser timezone regression | PASS | NY → LA transition preserves the draft, discards mismatched preview, blocks publication, and requires reload and re-preview before consistent LA publication. |
+| Client/runtime errors | PASS | 0 errors. |
+| Typecheck / lint / build | PASS | All passed. |
+| Diff check | PASS | `git diff --check` passed. |
+| Supervisor assignment authorization finding | CLOSED | Publish, cancel, and manageable-residence access require a valid current assignment; admin permissions are preserved. |
+| Atomic publication timezone finding | CLOSED | Preview timezone is validated under the school-row lock; revision, concurrency, and idempotent replay are preserved. |
+| UI timezone consistency finding | CLOSED | Input guidance, displayed timezone, preview timezone, and publication timezone agree before publication is available; no silent draft reinterpretation. |
+| G1-A authoritative publish/cancel path | PRESERVED | Approved RPC publication and cancellation remain authoritative. |
+| G1-B resolver semantics | PRESERVED | Deterministic semantics, window identity, and provenance remain unchanged. |
+| Custody isolation | PRESERVED | No custody mutation introduced. |
+| Production touched | NO | No Production access or mutation for G1-C validation or this closure. |
+| Deployment | NO | No deployment performed. |
+| Network Detection / AI / broad incident scope | NOT ENTERED | Outside this gate's implementation and closure scope. |
+
+### Closure Scope
+
+- Schedule G1-C — CLOSED / PASS.
+- This record adds only documentation; application code, migrations, RPCs, tests, and implementation files are unchanged.
+- Evidence is from completed local, disposable PostgreSQL, and synthetic browser validation; deferred first real Production policy/rendering QA remains unperformed and is not claimed by this closure.
+- Existing G1-A / G1-B closures and locked baselines remain unchanged.
