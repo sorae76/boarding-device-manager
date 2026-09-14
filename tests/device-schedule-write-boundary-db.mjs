@@ -148,8 +148,11 @@ function publishStatement({
   name = "Published schedule",
   from = "current_date + 30",
   to = null,
-  events = validEvents
+  events = validEvents,
+  timezone = undefined
 }) {
+  // Capture the expected timezone before dispatch, as a real preview does.
+  const expectedTimezone = timezone === undefined ? psql(`select timezone from public.schools where id = ${sqlText(school)}::uuid;`).stdout.trim() : timezone;
   const call = `public.publish_device_schedule(
     ${sqlText(school)}::uuid,
     ${nullableUuid(dorm)},
@@ -160,7 +163,8 @@ function publishStatement({
     ${sqlText(name)},
     (${from})::date,
     ${to ? `(${to})::date` : "null::date"},
-    ${sqlText(JSON.stringify(events))}::jsonb
+    ${sqlText(JSON.stringify(events))}::jsonb,
+    ${expectedTimezone === null ? "null::text" : sqlText(expectedTimezone)}
   )`;
   return actorSql(
     actor,
@@ -282,11 +286,30 @@ grant execute on function auth.uid(), auth.role() to anon, authenticated, servic
       .filter((name) => name.endsWith(".sql"))
       .sort();
     for (const migration of migrations) {
+      let legacyStatement, legacyResult, legacyAudit;
+      const legacySchool = "91000000-0000-0000-0000-000000000001";
+      if (migration.endsWith("_g1c_confirmed_review_corrections.sql")) {
+        const legacyActor = "93000000-0000-0000-0000-000000000001";
+        psql(`insert into auth.users(id,email) values ('${legacyActor}','legacy@example.test');
+          insert into public.app_users(id,email,full_name,global_role,is_active) values ('${legacyActor}','legacy@example.test','Legacy replay','super_admin',true);
+          insert into public.schools(id,name,slug,timezone,is_active) values ('${legacySchool}','Legacy replay','legacy-replay','UTC',true);`);
+        legacyStatement = actorSql(legacyActor, `select outcome || '|' || publication_id || '|' || policy_id || '|' || scope_revision || '|' || idempotent_replay
+          from public.publish_device_schedule('${legacySchool}',null,0,'96000000-0000-0000-0000-000000000001',null,null,'Legacy publication',current_date+40,null,'${JSON.stringify(validEvents)}'::jsonb);`);
+        legacyResult = resultRow(psql(legacyStatement).stdout);
+        assert.equal(legacyResult.outcome, "published");
+        legacyAudit = psql(`select to_jsonb(i) from public.device_schedule_publication_idempotency i where school_id='${legacySchool}';`).stdout;
+      }
       psql(readFileSync(join(migrationsDirectory, migration), "utf8"));
+      if (legacyStatement) {
+        psql(`update public.schools set timezone='America/New_York' where id='${legacySchool}';`);
+        assert.deepEqual(resultRow(psql(legacyStatement).stdout), { ...legacyResult, replay: true });
+        assert.equal(psql(`select to_jsonb(i) from public.device_schedule_publication_idempotency i where school_id='${legacySchool}';`).stdout, legacyAudit);
+        pass("forward amendment preserves immutable pre-amendment ten-argument publication replay after timezone change");
+      }
     }
     assert.ok(
-      migrations.at(-1)?.endsWith("_g1a_schedule_write_boundary.sql"),
-      "G1-A must be the latest forward migration"
+      migrations.includes("20260907190930_g1a_schedule_write_boundary.sql"),
+      "G1-A must be replayed before dependent forward migrations"
     );
     pass(`clean migration replay (${migrations.length} migrations)`);
 
@@ -512,6 +535,9 @@ commit;
       assert.equal(denied.outcome, "not_authorized", label);
       assert.equal(snapshot(), roleSnapshot, `${label} changed state`);
     }
+    assert.equal(runPublish({ actor: ids.supervisor, dorm: ids.dorm7, key: crypto.randomUUID() }).outcome, "not_authorized");
+    psql(`insert into public.dorm_staff_assignments(school_id,user_id,dorm_id,starts_at,is_active)
+      values (${sqlText(ids.school1)},${sqlText(ids.supervisor)},${sqlText(ids.dorm7)},now() - interval '1 day',true);`);
     const supervisorAllowed = runPublish({
       actor: ids.supervisor,
       dorm: ids.dorm7,
@@ -519,6 +545,8 @@ commit;
       name: "Supervisor Residence"
     });
     assert.equal(supervisorAllowed.outcome, "published");
+    psql(`delete from public.dorm_staff_assignments where school_id=${sqlText(ids.school1)}
+      and user_id=${sqlText(ids.supervisor)} and dorm_id=${sqlText(ids.dorm7)};`);
     const superAdminAllowed = runPublish({
       actor: ids.superAdmin,
       school: ids.school2,
@@ -542,6 +570,7 @@ commit;
       revision: 0,
       key: "60000000-0000-0000-0000-000000000027",
       name: "Delayed replay",
+      timezone: "Pacific/Honolulu",
       from: "(now() at time zone 'Pacific/Honolulu')::date + 1"
     };
     const delayedPublish = runPublish(delayedPublishRequest);
@@ -750,10 +779,10 @@ commit;
     );
     const privilegeMatrix = psql(`
 select
-  has_function_privilege('authenticated', 'public.publish_device_schedule(uuid,uuid,bigint,uuid,uuid,uuid,text,date,date,jsonb)', 'EXECUTE') || '|' ||
-  has_function_privilege('anon', 'public.publish_device_schedule(uuid,uuid,bigint,uuid,uuid,uuid,text,date,date,jsonb)', 'EXECUTE') || '|' ||
-  has_function_privilege('service_role', 'public.publish_device_schedule(uuid,uuid,bigint,uuid,uuid,uuid,text,date,date,jsonb)', 'EXECUTE') || '|' ||
-  has_function_privilege('public', 'public.publish_device_schedule(uuid,uuid,bigint,uuid,uuid,uuid,text,date,date,jsonb)', 'EXECUTE');
+  has_function_privilege('authenticated', 'public.publish_device_schedule(uuid,uuid,bigint,uuid,uuid,uuid,text,date,date,jsonb,text)', 'EXECUTE') || '|' ||
+  has_function_privilege('anon', 'public.publish_device_schedule(uuid,uuid,bigint,uuid,uuid,uuid,text,date,date,jsonb,text)', 'EXECUTE') || '|' ||
+  has_function_privilege('service_role', 'public.publish_device_schedule(uuid,uuid,bigint,uuid,uuid,uuid,text,date,date,jsonb,text)', 'EXECUTE') || '|' ||
+  has_function_privilege('public', 'public.publish_device_schedule(uuid,uuid,bigint,uuid,uuid,uuid,text,date,date,jsonb,text)', 'EXECUTE');
 `).stdout.trim();
     assert.equal(privilegeMatrix, "true|false|false|false");
     const functionSecurity = psql(`
@@ -780,6 +809,11 @@ where n.nspname = 'public' and p.proname = 'publish_device_schedule';
     if (process.argv.includes("--with-g1b")) {
       const { runResolverDatabaseChecks } = await import("./device-schedule-resolver-db.mjs");
       await runResolverDatabaseChecks({ psql, runPublish, cancelStatement, resultRow, ids, pass });
+    }
+
+    if (process.argv.includes("--with-g1c")) {
+      const { runAuthoringDatabaseChecks } = await import("./device-schedule-authoring-db.mjs");
+      await runAuthoringDatabaseChecks({ psql, psqlAsync, actorSql, ids, pass, runPublish, publishStatement, cancelStatement, resultRow });
     }
 
     const custodyAfter = snapshot().split("|").slice(-2).join("|");

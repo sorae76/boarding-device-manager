@@ -1,4 +1,5 @@
 import ScheduleManagement from "@/app/app/settings/schedules/schedule-management";
+import ScheduleAuthoring from "@/app/app/settings/schedules/schedule-authoring";
 import { requireScheduleContext } from "@/lib/schedules/access";
 import { listScheduleManagementData } from "@/lib/schedules/data";
 
@@ -12,9 +13,10 @@ export default async function ScheduleSettingsPage() {
       <div>
         <p className="text-sm font-medium text-brand">Admin / Settings</p>
         <h1 className="mt-2 text-2xl font-semibold text-neutral-950">Schedule management</h1>
-        <p className="mt-2 text-sm text-neutral-600">Read-only weekly device release and return schedules for {context.currentSchool.name}.</p>
+        <p className="mt-2 text-sm text-neutral-600">Weekly device release and return schedules for {context.currentSchool.name}. Published snapshots below show declared dates; open authoring for the resolved publication timeline.</p>
       </div>
       <ScheduleManagement data={data} timezone={context.currentSchool.timezone} />
+      {["super_admin", "school_admin", "dorm_supervisor"].includes(context.effectiveRole) && <ScheduleAuthoring />}
     </div>
   );
 }
