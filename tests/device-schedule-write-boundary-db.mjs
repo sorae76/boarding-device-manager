@@ -821,6 +821,11 @@ where n.nspname = 'public' and p.proname = 'publish_device_schedule';
     assert.equal(custodyAfter, "checked_out|0");
     pass("custody status and custody event history are unchanged");
 
+    if (process.argv.includes("--with-handoff")) {
+      const { runPilotHandoffChecks } = await import("./pilot-handoff-db.mjs");
+      await runPilotHandoffChecks({ psql, psqlAsync, actorSql, ids, pass });
+    }
+
     process.stdout.write("G1-A disposable PostgreSQL runtime: PASS\n");
   } finally {
     assert.match(container, /^boarding-device-manager-g1a-\d+$/);

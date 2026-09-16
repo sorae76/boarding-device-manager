@@ -27,7 +27,8 @@ const filterLabels: Record<DeviceCustodyStatus | DeviceRegistryAttention, string
   returned: "In device locker",
   inactive: "Broken / unusable",
   lost: "Missing / lost",
-  overdue: "Overdue returns"
+  overdue: "Overdue returns",
+  handoff: "Handoff — non-returned devices"
 };
 
 type DeviceRegistryPageProps = {
@@ -45,7 +46,7 @@ function getFilters(searchParams: DeviceRegistryPageProps["searchParams"]): Devi
   const attention = firstParam(searchParams?.attention);
   const status = firstParam(searchParams?.status);
 
-  if (attention === "overdue") {
+  if (attention === "overdue" || attention === "handoff") {
     return { attention };
   }
 
@@ -85,6 +86,14 @@ export default async function DeviceRegistryPage({ searchParams }: DeviceRegistr
           <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">
             Manage registered student devices, CSV import/export, and inventory details.
           </p>
+          {filters.attention === "handoff" ? (
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">
+              Current records for devices with students, missing / lost, or broken / unusable.
+              Inclusion does not establish an overdue return, misconduct, or physical location.
+              This view loads across successive reads, not as a frozen audit snapshot. Refresh
+              before accepting handoff to check for changes.
+            </p>
+          ) : null}
           {activeFilterLabel ? (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-700">
@@ -97,6 +106,9 @@ export default async function DeviceRegistryPage({ searchParams }: DeviceRegistr
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-center text-sm font-semibold text-neutral-700 hover:bg-neutral-50" href="/app/devices?attention=handoff">
+            Handoff — non-returned devices
+          </Link>
           <Link className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-center text-sm font-semibold text-amber-900 hover:bg-amber-100" href="/app/devices/registrations">Pending registrations ({pendingRegistrations.length})</Link>
           <Link className="rounded-md border border-orange-300 bg-orange-50 px-4 py-2 text-center text-sm font-semibold text-orange-900 hover:bg-orange-100" href="/app/devices/issues">Pending issue requests ({pendingIssues.length})</Link>
           <Link
@@ -177,7 +189,7 @@ export default async function DeviceRegistryPage({ searchParams }: DeviceRegistr
             {devices.length === 0 ? (
               <tr>
                 <td className="px-4 py-8 text-center text-neutral-500" colSpan={6}>
-                  No devices are registered yet.
+                  {filters.attention === "handoff" ? "No non-returned devices in your authorized scope." : "No devices are registered yet."}
                 </td>
               </tr>
             ) : null}

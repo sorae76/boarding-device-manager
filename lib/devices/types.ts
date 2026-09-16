@@ -1,6 +1,6 @@
 export type DeviceCustodyStatus = "checked_out" | "returned" | "inactive" | "lost";
 
-export type DeviceRegistryAttention = "overdue";
+export type DeviceRegistryAttention = "overdue" | "handoff";
 
 export type DeviceRegistryFilters = {
   attention?: DeviceRegistryAttention;

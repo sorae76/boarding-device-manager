@@ -109,14 +109,14 @@ export default async function DashboardPage() {
     },
     {
       title: "Student self-registration",
-      value: "Not configured",
-      detail: "No student request or Gmail matching schema exists yet.",
+      value: "Available",
+      detail: "Linked student accounts can submit device registration requests for staff approval.",
       state: "disabled"
     },
     {
       title: "Staff approval requests",
-      value: "Not configured",
-      detail: "No device registration request workflow exists yet.",
+      value: "Available to authorized staff",
+      detail: "Authorized admins and dorm staff can review requests in Device Registry.",
       state: "disabled"
     }
   ];

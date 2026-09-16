@@ -240,6 +240,7 @@ export async function listDevices(
   context: DeviceWorkflowContext,
   filters: DeviceRegistryFilters = {}
 ): Promise<CustodyDevice[]> {
+  if (filters.attention === "handoff") return listHandoffDevices(context);
   const supabase = createClient();
   let query = supabase
     .from("device_custody_devices")
@@ -261,6 +262,30 @@ export async function listDevices(
   }
 
   return ((data ?? []) as DeviceRow[]).map(normalizeDevice);
+}
+
+// Current operational state across successive reads, not a frozen audit snapshot.
+// An empty batch is the only completion signal: the API may cap short batches.
+async function listHandoffDevices(context: DeviceWorkflowContext): Promise<CustodyDevice[]> {
+  const supabase = createClient();
+  const devices: CustodyDevice[] = [];
+  let cursor: string | null = null;
+  while (true) {
+    let query = supabase.from("device_custody_devices").select(deviceSelect)
+      .eq("school_id", context.currentSchool.id)
+      .in("status", ["checked_out", "lost", "inactive"])
+      .order("id", { ascending: true }).limit(100);
+    if (cursor) query = query.gt("id", cursor);
+    const { data, error } = await query;
+    if (error || !data) throw new Error("Could not load the complete handoff view. Refresh to try again.");
+    const rows = data as DeviceRow[];
+    if (rows.length === 0) return devices;
+    for (const row of rows) {
+      if (cursor && row.id <= cursor) throw new Error("Could not load the complete handoff view. Refresh to try again.");
+      devices.push(normalizeDevice(row));
+      cursor = row.id;
+    }
+  }
 }
 
 export async function getDeviceCountsByStudentId(
