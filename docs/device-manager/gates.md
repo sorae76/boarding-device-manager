@@ -204,3 +204,53 @@
 - This record adds only documentation; application code, migrations, RPCs, tests, and implementation files are unchanged.
 - Evidence is from completed local, disposable PostgreSQL, and synthetic browser validation; deferred first real Production policy/rendering QA remains unperformed and is not claimed by this closure.
 - Existing G1-A / G1-B closures and locked baselines remain unchanged.
+
+## PILOT MVP FREEZE
+
+- Record: PILOT MVP FREEZE
+- status: FROZEN / PASS
+- recorded_at: 2026-09-17T22:14:53-04:00
+- frozen implementation commit SHA: `70c7d938141a6ffa774db4b01d524b1dd0fbda79`
+- Minimal Handoff / Onboarding: ACCEPTED
+- school-specific acceptance: `SCHOOL-SPECIFIC ACCEPTANCE — PASS WITH NON-BLOCKING ITEMS`
+- evidence environment: local synthetic/disposable environment only
+- Production access or mutation: none
+- deployment: none
+
+### Manual Operator Rehearsal
+
+The Olivet Academy Amenia school operations operator completed the manual rehearsal with synthetic data. The operator-reported evidence is:
+
+| Workflow | Elapsed time | Result |
+| --- | ---: | --- |
+| First student/device onboarding | 20m 42s | PASS |
+| First capture | 2m 18s | PASS |
+| Standard Return | 17s | PASS |
+| Standard Release | 20s | PASS |
+| Handoff review | 15s | PASS |
+| Interrupted/uncertain recovery | — | PASS |
+
+During onboarding, the operator initially entered the student's last name incorrectly. CSV Preview exposed the mismatch before import; the operator corrected the student record, re-previewed, and imported successfully. This is recorded as observed operator friction, not a confirmed product defect.
+
+For interrupted/uncertain recovery, the operator submitted Return for `Apple iPhone / OA-TIMED-DEV-001`, closed the tab before relying on the result, reopened the application, and checked authoritative device state and Custody Log before deciding whether to retry. The device was `Checked in / School storage`, exactly one `Checked in / Returned to school` event existed, and the operator did not repeat the Return.
+
+### Open Pilot-Entry Evidence
+
+- O-C02 is **not closed**.
+- A school-approved physical-device identification method remains pending.
+- End-to-end physical collection/release identification accuracy remains pending.
+- Confirmation that the identification method requires no unacceptable permanent modification of student-owned devices remains pending.
+- Actual collection-site connectivity verification remains pending.
+- O-C04 school-specific external-data privacy/legal entry remains pending.
+- Real student roster and device-population establishment remains pending.
+- First real Production schedule policy/publication/rendering QA remains pending.
+- Institutional approval, support/rollback ownership, pilot scope and pre-agreed success criteria, and all other remaining D32 evidence remain pending.
+
+This freeze does **not** claim O-C02 closure, Custody Commercial Pilot Entry, live-pilot readiness, Production readiness, or authorization to use real student/device data.
+
+### Frozen and Deferred Scope
+
+- Minimal Handoff / Onboarding implementation is accepted at the frozen implementation commit above.
+- Existing authorization, custody-state, schedule/exception, audit-history, and closed G1-A/G1-B/G1-C behavior remain part of the frozen baseline.
+- Network Detection, AI, and broad incident-management expansion remain deferred.
+- After this freeze, product implementation scope may reopen only for a confirmed pilot blocker or confirmed bug through a separately authorized controlled change. Speculative feature expansion does not reopen the baseline.
